@@ -4,7 +4,7 @@
 
 Un ecosistema dedicado al desarrollo, la innovación tecnológica y la privacidad global. 
 
-[![Licencia](https://img.shields.io/badge/Licencia-MIT-blue.svg)](#)
+[![Licencia](https://img.shields.io/badge/Licencia-MIT-blue.svg)](LICENSE)
 [![Estado](https://img.shields.io/badge/Estado-Activo-success.svg)](#)
 [![Bitcoin](https://img.shields.io/badge/Soporte-Bitcoin-orange.svg)](#)
 
