@@ -1,7 +1,6 @@
 import os
 from pydantic_settings import BaseSettings
 
-
 def _require(var: str) -> str:
     """Falla en startup si una variable de entorno crítica no está definida."""
     value = os.getenv(var)
@@ -12,18 +11,20 @@ def _require(var: str) -> str:
         )
     return value
 
-
 class Settings(BaseSettings):
     PROJECT_NAME: str = "Global Intelligence API"
     VERSION: str = "1.0.0"
     API_V1_STR: str = "/api/v1"
+    ENV: str = os.getenv("ENV", "development")
 
-    # Security — OBLIGATORIO, sin defaults
-    SECRET_KEY: str = os.getenv("SECRET_KEY") or ""
+    # Security
+    SECRET_KEY: str = os.getenv("SECRET_KEY", "")
+    REFRESH_SECRET_KEY: str = os.getenv("REFRESH_SECRET_KEY", "")
     ALGORITHM: str = "HS256"
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 7  # 7 days
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 15
+    REFRESH_TOKEN_EXPIRE_DAYS: int = 7
 
-    # PostgreSQL — defaults solo para desarrollo local
+    # PostgreSQL Database
     POSTGRES_USER: str = os.getenv("POSTGRES_USER", "global_user")
     POSTGRES_PASSWORD: str = os.getenv("POSTGRES_PASSWORD", "")
     POSTGRES_SERVER: str = os.getenv("POSTGRES_SERVER", "localhost")
@@ -39,6 +40,7 @@ class Settings(BaseSettings):
 
     # Redis
     REDIS_URL: str = os.getenv("REDIS_URL", "redis://localhost:6379/0")
+    REDIS_PASSWORD: str = os.getenv("REDIS_PASSWORD", "")
 
     # AI OpenRouter
     OPENROUTER_API_KEY: str = os.getenv("OPENROUTER_API_KEY", "")
@@ -56,7 +58,6 @@ class Settings(BaseSettings):
 
     class Config:
         case_sensitive = True
-
+        env_file = ".env"
 
 settings = Settings()
-

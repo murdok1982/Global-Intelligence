@@ -16,7 +16,13 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         response.headers["X-Frame-Options"] = "DENY"
         response.headers["X-XSS-Protection"] = "1; mode=block"
         response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
-        
+        response.headers["Content-Security-Policy"] = (
+            "default-src 'self'; script-src 'self'; object-src 'none'"
+        )
+        response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+        response.headers["Permissions-Policy"] = "geolocation=(), microphone=(), camera=()"
+        response.headers["X-Permitted-Cross-Domain-Policies"] = "none"
+
         # Telemetry
         response.headers["X-Process-Time"] = str(process_time)
         logger.info(f"Path: {request.url.path} handled in {process_time:.4f}s")

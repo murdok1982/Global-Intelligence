@@ -1,0 +1,13 @@
+{
+  "include": ["app"],
+  "exclude": ["**/__pycache__"],
+  "ignore": [],
+  "defineConstant": {},
+  "venvPath": ".",
+  "venv": ".venv",
+  "pythonVersion": "3.11",
+  "pythonPlatform": "Linux",
+  "typeCheckingMode": "basic",
+  "reportMissingModuleSource": "none",
+  "reportMissingImports": "none"
+}

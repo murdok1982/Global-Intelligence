@@ -1,0 +1,108 @@
+import uuid
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.future import select
+from sqlalchemy import func
+
+from app.api.deps import get_db, get_current_admin
+from app.models.user import User
+from app.models.interactions import ContributorSubmission
+from app.models.geography import Country
+from app.models.intelligence import IntelligenceItem
+from app.models.reports import DailyReport
+from app.schemas.user import UserResponse
+
+router = APIRouter()
+
+
+@router.get("/stats")
+async def get_stats(
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(get_current_admin),
+) -> dict:
+    user_count = (await db.execute(select(func.count(User.id)))).scalar() or 0
+    country_count = (await db.execute(select(func.count(Country.id)))).scalar() or 0
+    intel_count = (await db.execute(select(func.count(IntelligenceItem.id)))).scalar() or 0
+    report_count = (await db.execute(select(func.count(DailyReport.id)))).scalar() or 0
+    pending_contributions = (
+        await db.execute(
+            select(func.count(ContributorSubmission.id)).where(
+                ContributorSubmission.status == "pending_review"
+            )
+        )
+    ).scalar() or 0
+
+    return {
+        "users": user_count,
+        "countries": country_count,
+        "intelligence_items": intel_count,
+        "reports": report_count,
+        "pending_contributions": pending_contributions,
+    }
+
+
+@router.get("/contributions")
+async def list_contributions(
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(get_current_admin),
+) -> list[dict]:
+    result = await db.execute(
+        select(ContributorSubmission).where(
+            ContributorSubmission.status == "pending_review"
+        ).order_by(ContributorSubmission.created_at.desc())
+    )
+    contributions = result.scalars().all()
+    return [
+        {
+            "id": str(c.id),
+            "alias": c.alias,
+            "country": c.country,
+            "category": c.category,
+            "description": c.description,
+            "actors": c.actors,
+            "confidence": c.confidence,
+            "status": c.status,
+            "created_at": c.created_at.isoformat(),
+        }
+        for c in contributions
+    ]
+
+
+@router.patch("/contributions/{contribution_id}")
+async def review_contribution(
+    contribution_id: uuid.UUID,
+    body: dict,
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(get_current_admin),
+) -> dict:
+    action: str = body.get("action", "")
+    if action not in ("approve", "reject"):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="action must be 'approve' or 'reject'",
+        )
+
+    result = await db.execute(
+        select(ContributorSubmission).where(ContributorSubmission.id == contribution_id)
+    )
+    contribution = result.scalars().first()
+    if not contribution:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Contribution not found")
+
+    contribution.status = "approved" if action == "approve" else "rejected"
+    await db.commit()
+    return {"id": str(contribution.id), "status": contribution.status}
+
+
+@router.get("/users", response_model=list[UserResponse])
+async def list_users(
+    page: int = Query(1, ge=1),
+    size: int = Query(20, ge=1, le=100),
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(get_current_admin),
+) -> list[UserResponse]:
+    result = await db.execute(
+        select(User).offset((page - 1) * size).limit(size)
+    )
+    users = result.scalars().all()
+    return [UserResponse.model_validate(u) for u in users]

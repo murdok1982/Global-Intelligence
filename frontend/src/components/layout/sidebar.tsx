@@ -12,12 +12,12 @@ export function Sidebar() {
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 w-full px-4 space-y-2">
+      <nav className="flex-1 w-full px-4 space-y-2" aria-label="Main navigation">
         <NavItem href="/dashboard" icon={<Globe size={18} />} label="Global Map" active />
         <NavItem href="/intelligence" icon={<Database size={18} />} label="Intelligence Lake" />
         <NavItem href="/reports" icon={<FileText size={18} />} label="Daily Synthesis" />
         <NavItem href="/scenarios" icon={<Zap size={18} />} label="Scenario Engine" />
-        
+
         <div className="pt-6 pb-2 px-2">
           <p className="text-[10px] font-bold tracking-widest text-neutral-600 uppercase">Operations</p>
         </div>
@@ -41,15 +41,17 @@ export function Sidebar() {
 
 function NavItem({ href, icon, label, active = false }: { href: string; icon: React.ReactNode; label: string; active?: boolean }) {
   return (
-    <Link 
-      href={href} 
+    <Link
+      href={href}
+      role="menuitem"
+      aria-current={active ? 'page' : undefined}
       className={`flex items-center gap-3 px-3 py-2.5 rounded text-sm transition-all group ${
-        active 
-          ? 'bg-blue-600/10 text-blue-400 border border-blue-600/20' 
+        active
+          ? 'bg-blue-600/10 text-blue-400 border border-blue-600/20'
           : 'text-neutral-400 hover:bg-neutral-900 hover:text-neutral-200'
       }`}
     >
-      <span className={active ? "text-blue-500" : "text-neutral-500 group-hover:text-neutral-300 transition-colors"}>
+      <span className={active ? "text-blue-500" : "text-neutral-500 group-hover:text-neutral-300 transition-colors"} aria-hidden="true">
         {icon}
       </span>
       <span className="font-medium tracking-wide">{label}</span>
