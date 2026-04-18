@@ -1,12 +1,17 @@
 <div align="center">
 
-# ⚡ Sistemas Descentralizados & Código Abierto 🌐
+# ⚡ Global Intelligence 🌐
 
-Un ecosistema dedicado al desarrollo, la innovación tecnológica y la privacidad global. 
+**Plataforma Integral de Inteligencia Artificial y Sistemas Descentralizados**
 
 [![Licencia](https://img.shields.io/badge/Licencia-MIT-blue.svg)](LICENSE)
 [![Estado](https://img.shields.io/badge/Estado-Activo-success.svg)](#)
 [![Bitcoin](https://img.shields.io/badge/Soporte-Bitcoin-orange.svg)](#)
+[![Framework](https://img.shields.io/badge/Frontend-Next.js%2016-black.svg?logo=next.js)](#)
+[![Backend](https://img.shields.io/badge/Backend-FastAPI-009688.svg?logo=fastapi)](#)
+[![Database](https://img.shields.io/badge/Base%20de%20Datos-PostgreSQL%20%2B%20pgvector-336791.svg?logo=postgresql)](#)
+
+Un ecosistema avanzado diseñado para el desarrollo, la innovación tecnológica y la soberanía de la información, utilizando arquitecturas escalables, modelos de IA (Langchain) y procesamiento distribuido.
 
 </div>
 
@@ -14,38 +19,149 @@ Un ecosistema dedicado al desarrollo, la innovación tecnológica y la privacida
 
 ## 📖 Sobre el Proyecto
 
-Bienvenido(a) a mi espacio de desarrollo de código abierto. Este repositorio abarca la construcción y mejora de sistemas descentralizados, herramientas de inteligencia y aplicaciones que promueven la soberanía tecnológica, financiera y la seguridad de la información.
+**Global Intelligence** es una plataforma versátil y robusta diseñada para construir y desplegar agentes inteligentes y herramientas analíticas. Utilizando tecnologías punteras como bases de datos vectoriales (pgvector), procesamiento asíncrono con Celery/Redis, y un frontend ultramoderno con Next.js y Tailwind CSS, la plataforma permite el desarrollo ágil de aplicaciones impulsadas por Inteligencia Artificial enfocadas en privacidad, eficiencia y seguridad de la información.
 
 ### ✨ Características Principales
-- 🔒 **Seguridad y Privacidad:** Arquitectura estructurada con los más altos estándares para proteger datos sensibles.
-- ⚡ **Alto Rendimiento:** Código optimizado y robusto para una máxima eficiencia.
-- 🌐 **Descentralización:** Funcionalidades pensadas para operar en entornos distribuidos y resistentes a caídas.
-- 🤝 **Comunidad:** Código abierto, fomentando la auditoría, colaboración y mejoras constantes.
+
+- 🧠 **Inteligencia Artificial Integrada:** Framework Langchain preparado para despliegue de agentes inteligentes y pipelines de LLMs.
+- 🗄️ **Base de Datos Vectorial:** Búsqueda semántica de alto rendimiento utilizando PostgreSQL con `pgvector`.
+- ⚡ **Alto Rendimiento y Asincronía:** Backend construido sobre FastAPI con un sistema de colas robusto vía Celery y Redis.
+- 🎨 **Interfaz Moderna:** Frontend React/Next.js 16 con Shadcn UI, Framer Motion y Tailwind CSS para una experiencia de usuario estelar.
+- 🔒 **Seguridad y Privacidad:** Arquitectura estructurada con los más altos estándares para proteger datos sensibles y promover la descentralización.
+- 🐳 **Despliegue Contenerizado:** Totalmente orquestado a través de Docker y Docker Compose para garantizar reproducibilidad.
 
 ---
 
-## 🚀 Instalación y Uso rápido
+## 🏗️ Arquitectura del Sistema
+
+A continuación se detalla la estructura principal del funcionamiento del sistema:
+
+```mermaid
+graph TD
+    User([👤 Usuario final]) -->|HTTP / WebSockets| Frontend[💻 Frontend Next.js]
+    Frontend -->|API RESTful| Backend[⚡ Backend FastAPI]
+    
+    subgraph "Core Global Intelligence"
+        Backend -->|Consultas SQL e Índices Vectoriales| Postgres[(🐘 PostgreSQL + pgvector)]
+        Backend -->|Caché y Mensajería| Redis[(🔴 Redis)]
+        Backend -->|Envía tareas pesadas| Celery[⚙️ Celery Workers]
+        Celery -->|Lee/Escribe estado| Redis
+        Celery -->|Guarda resultados| Postgres
+        
+        Backend <-->|Pipelines y Prompts| Langchain[🧠 Langchain AI Agents]
+        Celery <-->|Larga duración| Langchain
+    end
+    
+    Langchain -.->|Llamadas a la API| Externos([LLMs API Externos OpenAI/Claude/etc.])
+    
+    classDef frontend fill:#000,stroke:#fff,stroke-width:2px,color:#fff;
+    classDef backend fill:#009688,stroke:#fff,stroke-width:2px,color:#fff;
+    classDef db fill:#336791,stroke:#fff,stroke-width:2px,color:#fff;
+    classDef ai fill:#FF9900,stroke:#fff,stroke-width:2px,color:#fff;
+    
+    class Frontend frontend;
+    class Backend,Celery backend;
+    class Postgres,Redis db;
+    class Langchain ai;
+```
+
+---
+
+## 🌐 Mapa Mental del Ecosistema
+
+```mermaid
+mindmap
+  root((Global<br/>Intelligence))
+    Backend FastAPI
+      Autenticación Segura JWT
+      Endpoints REST
+      Integración Langchain
+      Stripe Payments
+    Procesamiento Asíncrono
+      Celery Workers
+      Redis Broker
+      Tareas Programadas
+    Datos y Memoria
+      PostgreSQL
+      pgvector "Búsqueda Semántica"
+      Modelos SQLAlchemy & Alembic
+    Frontend Moderno
+      Next.js 16 React
+      Shadcn UI & Tailwind CSS
+      Framer Motion "Animaciones"
+      React Query
+    Casos de Uso IA
+      Análisis de Textos
+      Agentes Autónomos
+      Sistemas tipo RAG
+```
+
+---
+
+## 🚀 Instalación y Uso Rápido
+
+El proyecto está diseñado para ser levantado fácilmente mediante Docker, lo que abstrae la complejidad de la configuración del entorno.
+
+### 📋 Prerrequisitos
+
+- **Docker y Docker Compose** instalados en tu sistema.
+- (Opcional) Claves de API para proveedores de LLM (ej. OpenAI u otras) si los agentes locales lo requieren.
+
+### 🛠️ Pasos de Instalación
 
 1. **Clona este repositorio:**
    ```bash
    git clone https://github.com/murdok1982/Global-Intelligence.git
-   ```
-2. **Accede al directorio principal:**
-   ```bash
    cd Global-Intelligence
    ```
-3. **Instala y ejecuta** siguiendo las instrucciones particulares del entorno (Frontend/Backend).
+
+2. **Configuración de Variables de Entorno:**
+   El proyecto requiere archvos `.env` configurados tanto en `backend` como en `frontend` (si procede).
+   
+   - Copia la plantilla `.env.example` del backend:
+     ```bash
+     cp backend/.env.example backend/.env
+     ```
+   - Edita el archivo `backend/.env` con tus preferencias y claves (por ejemplo, claves API para Langchain, contraseñas de las bases de datos).
+
+3. **Despliega los contenedores mediante Docker Compose:**
+   Levanta todos los servicios de una sola vez (Base de datos Postgres con pgvector, Redis, Backend, Workers de Celery y Frontend). El tag `-d` lo lanza en segundo plano.
+   ```bash
+   docker-compose up --build -d
+   ```
+
+4. **Aplicar Migraciones Base de Datos:**
+   El sistema ejecuta las migraciones (`alembic upgrade head`) de forma automática al iniciar el contenedor del backend, pero si se necesita forzarla o controlarla manualmente:
+   ```bash
+   docker-compose exec backend alembic upgrade head
+   ```
+
+5. **Accede a los servicios localmente:**
+   - **Interfaz gráfica de usuario (Frontend):** [http://localhost:3000](http://localhost:3000)
+   - **Documentación de la API Backend (Swagger/OpenAPI):** [http://localhost:8000/docs](http://localhost:8000/docs)
+
+---
+
+## 💡 Ejemplos de Casos de Uso Posibles
+
+Gracias a su arquitectura flexible y la combinación de bases de datos vectoriales con Langchain, **Global Intelligence** puede ser el núcleo base para implementar:
+
+- 🕵️ **Análisis de Inteligencia / OSINT:** Procesamiento y análisis de grandes flujos de información extraídos de internet, permitiendo obtener resúmenes, relaciones, y búsqueda de similitud inteligente a través del agente Langchain.
+- 📚 **Sistemas RAG (Retrieval-Augmented Generation):** Desarrollo de robustos chatbots o cuadros de búsqueda corporativos en los que puedes cargar documentos privados (PDFs, docs). Los agentes de IA de Langchain accederían localmente o en remoto a pgvector para encontrar la información y responderían con precisión con el contexto añadido.
+- 🤖 **Gestión de Agentes Autónomos:** Despliegue de bots de automatización basados en Inteligencia Artificial que ejecuten tareas programadas asíncronas (a través de Celery - Redis) como monitorización de precios de activos web (Scraping Inteligente) o alertas en mercados.
+- 🔒 **Protección de Datos / Privacidad / Logs:** Integración del backend para analizar miles de logs de otro sistema del ecosistema de seguridad de la corporación. Un agente de IA procesa silenciosamente en el worker y levanta alarmas si los patrones detectados son sospechosos.
 
 ---
 
 ## 🤝 Contribuciones
 
-¡Las contribuciones son siempre bienvenidas! Si tienes ideas, reports de errores o mejoras:
+¡Las contribuciones a la descentralización y la soberanía del código son siempre bienvenidas! Si tienes ideas, informes de errores, o puedes mejorar algo:
+
 1. Haz un *Fork* del proyecto.
 2. Crea una rama para tu aporte (`git checkout -b feature/MejoraIncreible`).
-3. Confirma los cambios (`git commit -m 'Añade una mejora increíble'`).
-4. Sube la rama (`git push origin feature/MejoraIncreible`).
-5. Abre un *Pull Request* para que lo revise.
+3. Confirma los modificaciones realizadas (`git commit -m 'Añade una mejora increíble relativa a XYZ'`).
+4. Sube la rama temporal al repositorio (`git push origin feature/MejoraIncreible`).
+5. Abre un *Pull Request* para su respectiva revisión.
 
 ---
 
