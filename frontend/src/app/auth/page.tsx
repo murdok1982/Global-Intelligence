@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useLogin, useRegister } from '@/hooks/useAuth';
+import { isMfaRequired } from '@/lib/api/types';
 import { Shield, Lock, Eye, EyeOff, AlertTriangle } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -28,8 +29,15 @@ export default function AuthPage() {
     e.preventDefault();
     if (!loginEmail || !loginPassword) return;
     try {
-      await login.mutateAsync({ email: loginEmail, password: loginPassword });
-      toast.success('Access granted');
+      const result = await login.mutateAsync({
+        email: loginEmail,
+        password: loginPassword,
+      });
+      if (isMfaRequired(result)) {
+        toast('Verificación adicional requerida', { icon: '🔐' });
+      } else {
+        toast.success('Acceso concedido');
+      }
     } catch (err: unknown) {
       const message =
         err instanceof Error ? err.message : 'Authentication failed';

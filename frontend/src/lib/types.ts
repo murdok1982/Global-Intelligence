@@ -1,8 +1,14 @@
+import { ClassificationLevel, TLP } from "@/lib/classification";
+
 export interface User {
   id: string;
   email: string;
   role: 'user' | 'institutional' | 'admin';
   is_active: boolean;
+  /** Nivel de habilitación del usuario. Por defecto PUBLIC (0). */
+  clearance_level?: ClassificationLevel;
+  /** Indica si el usuario tiene MFA activado. */
+  mfa_enabled?: boolean;
 }
 
 export interface Continent {
@@ -32,6 +38,12 @@ export interface IntelligenceItem {
   content: string;
   confidence_score: number;
   created_at: string;
+  /** Nivel de clasificación. Opcional para compatibilidad con endpoints públicos. */
+  classification?: ClassificationLevel;
+  /** Marca TLP del ítem. */
+  tlp?: TLP;
+  admiralty_reliability?: string | null;
+  admiralty_credibility?: string | null;
 }
 
 export interface IntelligenceListResponse {
@@ -48,7 +60,22 @@ export interface Report {
   report_date: string;
   executive_summary: string;
   content_json?: string;
+  content_markdown?: string | null;
   published: boolean;
+  /** Clasificación del reporte. Opcional por compatibilidad. */
+  classification?: ClassificationLevel;
+  /** Marca TLP. */
+  tlp?: TLP;
+  /** Firma digital opcional (P3). */
+  signature?: string | null;
+  /** Timestamp ISO-8601 de cuando se firmó. */
+  signed_at?: string | null;
+  /** Fingerprint (16 hex) de la pubkey usada para firmar. */
+  signature_fingerprint?: string | null;
+  /** Organización propietaria — entra al canonical payload si está presente. */
+  org_id?: string | null;
+  /** Timestamp de creación del reporte. */
+  created_at?: string | null;
 }
 
 export interface ChatSession {

@@ -1,6 +1,6 @@
 'use client';
 
-import { Shield, Activity, Users, FileWarning, Key, FileText, Globe } from 'lucide-react';
+import { Activity, Users, FileWarning, FileText, Globe } from 'lucide-react';
 import { useAdminStats, useContributions, useReviewContribution } from '@/hooks/useAdmin';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ErrorState } from '@/components/ui/error-state';

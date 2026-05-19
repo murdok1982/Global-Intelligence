@@ -17,6 +17,7 @@ import {
 } from '@/hooks/useChat';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ErrorState } from '@/components/ui/error-state';
+import { ReportSignatureBadge } from '@/components/security/ReportSignatureBadge';
 import toast from 'react-hot-toast';
 
 export default function ReportDetail({
@@ -107,7 +108,7 @@ export default function ReportDetail({
                 <h1 className="text-3xl font-light tracking-tight text-white leading-tight">
                   {report.executive_summary}
                 </h1>
-                <div className="flex gap-4 mt-6 uppercase tracking-widest text-[10px] font-mono font-bold flex-wrap">
+                <div className="flex gap-4 mt-6 uppercase tracking-widest text-[10px] font-mono font-bold flex-wrap items-center">
                   <span className="text-blue-500 bg-blue-500/10 px-2 py-1 rounded">
                     OSINT Generation
                   </span>
@@ -119,6 +120,7 @@ export default function ReportDetail({
                       Published
                     </span>
                   )}
+                  <ReportSignatureBadge report={report} />
                 </div>
               </div>
               <div className="flex gap-2 flex-shrink-0">

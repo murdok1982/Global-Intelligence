@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
-const publicRoutes = ['/', '/auth', '/pricing'];
+const publicRoutes = ['/', '/auth'];
 
 export function middleware(request: NextRequest) {
   // 'session_present' is a non-sensitive boolean cookie set on login.

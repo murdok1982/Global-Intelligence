@@ -1,16 +1,48 @@
 'use client';
 
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
 import Cookies from 'js-cookie';
-import apiClient from '@/lib/api-client';
+import apiClient, { setInMemoryAccessToken } from '@/lib/api-client';
 import type {
   LoginRequest,
-  LoginResponse,
   RegisterRequest,
   RegisterResponse,
-  User,
 } from '@/lib/types';
+import {
+  isMfaRequired,
+  type LoginResponse,
+  type LoginResponseTokens,
+} from '@/lib/api/types';
+
+// Re-export del hook canónico — fuente de verdad en `useCurrentUser.ts`.
+export { useCurrentUser } from './useCurrentUser';
+
+/** Clave de sessionStorage para el challenge_token entre /auth y /auth/mfa. */
+export const MFA_CHALLENGE_STORAGE_KEY = 'mfa_challenge_token';
+export const MFA_CHALLENGE_EXPIRES_KEY = 'mfa_challenge_expires_at';
+
+/**
+ * Persiste tokens emitidos por el backend tras una autenticación exitosa
+ * (login directo o login + MFA). Mantiene el access token en memoria + cookie
+ * sentinel, y el refresh token en cookie estricta.
+ */
+export function persistAuthTokens(tokens: LoginResponseTokens): void {
+  setInMemoryAccessToken(tokens.access_token);
+  // Cookie sentinel (no contiene el token) para el middleware.
+  Cookies.set('session_present', '1', {
+    expires: 1, // 1 día — se renueva con refresh
+    sameSite: 'strict',
+    secure: typeof window !== 'undefined' && window.location.protocol === 'https:',
+  });
+  // refresh_token en cookie estricta — limitada al endpoint de refresh.
+  Cookies.set('refresh_token', tokens.refresh_token, {
+    expires: 7,
+    sameSite: 'strict',
+    secure: typeof window !== 'undefined' && window.location.protocol === 'https:',
+    path: '/api/v1/auth/refresh',
+  });
+}
 
 export function useLogin() {
   const router = useRouter();
@@ -20,16 +52,22 @@ export function useLogin() {
     mutationFn: async (credentials) => {
       const { data } = await apiClient.post<LoginResponse>(
         '/auth/login',
-        credentials
+        credentials,
       );
       return data;
     },
     onSuccess: (data) => {
-      localStorage.setItem('access_token', data.access_token);
-      // access_token in cookie for middleware (15 min)
-      Cookies.set('access_token', data.access_token, { expires: 1 / 96 });
-      // refresh_token in cookie only
-      Cookies.set('refresh_token', data.refresh_token, { expires: 7 });
+      if (isMfaRequired(data)) {
+        // Guarda el challenge token en sessionStorage y redirige al desafío.
+        if (typeof window !== 'undefined') {
+          const expiresAt = Date.now() + data.expires_in * 1000;
+          sessionStorage.setItem(MFA_CHALLENGE_STORAGE_KEY, data.challenge_token);
+          sessionStorage.setItem(MFA_CHALLENGE_EXPIRES_KEY, String(expiresAt));
+        }
+        router.push('/auth/mfa');
+        return;
+      }
+      persistAuthTokens(data);
       queryClient.invalidateQueries({ queryKey: ['me'] });
       router.push('/dashboard');
     },
@@ -53,26 +91,18 @@ export function useRegister() {
   });
 }
 
-export function useCurrentUser() {
-  return useQuery<User>({
-    queryKey: ['me'],
-    queryFn: async () => {
-      const { data } = await apiClient.get<User>('/auth/me');
-      return data;
-    },
-    retry: false,
-    staleTime: 5 * 60 * 1000,
-  });
-}
-
 export function useLogout() {
   const router = useRouter();
   const queryClient = useQueryClient();
 
   return () => {
-    localStorage.removeItem('access_token');
-    Cookies.remove('access_token');
-    Cookies.remove('refresh_token');
+    setInMemoryAccessToken(null);
+    Cookies.remove('session_present');
+    Cookies.remove('refresh_token', { path: '/api/v1/auth/refresh' });
+    if (typeof window !== 'undefined') {
+      sessionStorage.removeItem(MFA_CHALLENGE_STORAGE_KEY);
+      sessionStorage.removeItem(MFA_CHALLENGE_EXPIRES_KEY);
+    }
     queryClient.clear();
     router.push('/auth');
   };
