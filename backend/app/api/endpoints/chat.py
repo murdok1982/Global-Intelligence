@@ -21,6 +21,7 @@ from app.schemas.chat import (
     ScenarioResponse,
 )
 from app.agents.orchestrator import openclaw_master
+from app.core.classification import ClassificationLevel
 
 router = APIRouter()
 
@@ -104,10 +105,16 @@ async def send_message(
     db.add(user_msg)
     await db.flush()
 
-    # Generate agent response (bounded to report context)
+    # Generate agent response (bounded to report context). The
+    # classification of the report drives the LLM routing.
+    report_cls = ClassificationLevel.from_any(
+        int(getattr(report, "classification", ClassificationLevel.PUBLIC))
+    )
     agent_text = await openclaw_master.dispatch_synthesis(
         raw_events=[body.content],
         topic=report_context[:500] if report_context else body.content,
+        classification=report_cls,
+        user_id=current_user.id,
     )
 
     assistant_msg = ChatMessageModel(
@@ -139,9 +146,14 @@ async def run_scenario(
     if not report:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Report not found")
 
+    report_cls = ClassificationLevel.from_any(
+        int(getattr(report, "classification", ClassificationLevel.PUBLIC))
+    )
     output = await openclaw_master.process_user_scenario(
         report_context=report.content_json,
         user_variable=body.variable,
+        classification=report_cls,
+        user_id=current_user.id,
     )
 
     run = ScenarioRun(

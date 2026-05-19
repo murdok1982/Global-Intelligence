@@ -8,7 +8,17 @@ from app.core.config import settings
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 
-def create_access_token(subject: Union[str, Any]) -> str:
+def create_access_token(
+    subject: Union[str, Any],
+    *,
+    mfa_verified: bool = False,
+) -> str:
+    """Mint an access token.
+
+    ``mfa_verified`` MUST be passed True only when the caller has just
+    completed a fresh MFA exchange. The classified scope refuses any
+    access token without this claim when ``STATE_GRADE_MODE=true``.
+    """
     expire = datetime.now(timezone.utc) + timedelta(
         minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES
     )
@@ -18,10 +28,16 @@ def create_access_token(subject: Union[str, Any]) -> str:
         "sub": str(subject),
         "type": "access",
     }
+    if mfa_verified:
+        payload["mfa_verified"] = True
     return jwt.encode(payload, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
 
 
-def create_refresh_token(subject: Union[str, Any]) -> str:
+def create_refresh_token(
+    subject: Union[str, Any],
+    *,
+    mfa_verified: bool = False,
+) -> str:
     expire = datetime.now(timezone.utc) + timedelta(
         days=settings.REFRESH_TOKEN_EXPIRE_DAYS
     )
@@ -31,6 +47,8 @@ def create_refresh_token(subject: Union[str, Any]) -> str:
         "sub": str(subject),
         "type": "refresh",
     }
+    if mfa_verified:
+        payload["mfa_verified"] = True
     return jwt.encode(
         payload, settings.REFRESH_SECRET_KEY, algorithm=settings.ALGORITHM
     )

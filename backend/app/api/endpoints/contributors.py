@@ -17,7 +17,7 @@ async def contributor_intake(
     body: ContributorIntakeRequest,
 ) -> ContributorIntakeResponse:
     session_id = body.session_id or str(uuid.uuid4())
-    response_text = _intake_agent.process_intake(
+    response_text = await _intake_agent.process_intake(
         user_message=body.message,
         chat_history=[],
     )

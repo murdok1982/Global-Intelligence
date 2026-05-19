@@ -1,16 +1,21 @@
 import uuid
+from datetime import datetime
+from typing import Optional
+
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy import func
 
 from app.api.deps import get_db, get_current_admin
+from app.models.audit import AuditEvent
 from app.models.user import User
 from app.models.interactions import ContributorSubmission
 from app.models.geography import Country
 from app.models.intelligence import IntelligenceItem
 from app.models.reports import DailyReport
 from app.schemas.user import UserResponse
+from app.services.audit import audit_service
 
 router = APIRouter()
 
@@ -106,3 +111,67 @@ async def list_users(
     )
     users = result.scalars().all()
     return [UserResponse.model_validate(u) for u in users]
+
+
+# ---------------------------------------------------------------------------
+# Audit log integrity & query
+# ---------------------------------------------------------------------------
+
+
+@router.get("/audit/verify")
+async def audit_verify(
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(get_current_admin),
+) -> dict:
+    """Recompute the hash chain and report integrity status.
+
+    Admin-only. Exposed under the classified router, so the MFA
+    dependency guarantees the caller has a fresh second factor.
+    """
+    return await audit_service.verify_chain(db)
+
+
+@router.get("/audit/events")
+async def audit_events(
+    event_type: Optional[str] = Query(None),
+    actor_user_id: Optional[uuid.UUID] = Query(None),
+    classification: Optional[int] = Query(None),
+    from_ts: Optional[datetime] = Query(None, alias="from"),
+    to_ts: Optional[datetime] = Query(None, alias="to"),
+    page: int = Query(1, ge=1),
+    size: int = Query(50, ge=1, le=500),
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(get_current_admin),
+) -> list[dict]:
+    stmt = select(AuditEvent).order_by(AuditEvent.timestamp.desc())
+    if event_type:
+        stmt = stmt.where(AuditEvent.event_type == event_type)
+    if actor_user_id:
+        stmt = stmt.where(AuditEvent.actor_user_id == actor_user_id)
+    if classification is not None:
+        stmt = stmt.where(AuditEvent.classification == classification)
+    if from_ts:
+        stmt = stmt.where(AuditEvent.timestamp >= from_ts)
+    if to_ts:
+        stmt = stmt.where(AuditEvent.timestamp <= to_ts)
+    stmt = stmt.offset((page - 1) * size).limit(size)
+    result = await db.execute(stmt)
+    rows = result.scalars().all()
+    return [
+        {
+            "id": str(r.id),
+            "timestamp": r.timestamp.isoformat(),
+            "actor_user_id": str(r.actor_user_id) if r.actor_user_id else None,
+            "actor_ip": r.actor_ip,
+            "event_type": r.event_type,
+            "resource_type": r.resource_type,
+            "resource_id": r.resource_id,
+            "classification": r.classification,
+            "org_id": str(r.org_id) if r.org_id else None,
+            "outcome": r.outcome,
+            "metadata_json": r.metadata_json,
+            "row_hash": r.row_hash,
+            "prev_hash": r.prev_hash,
+        }
+        for r in rows
+    ]

@@ -3,10 +3,14 @@ from fastapi.middleware.cors import CORSMiddleware
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 
+from app.api.api import classified_router, public_router, api_router
+from app.core.audit_middleware import AuditMiddleware
 from app.core.config import settings
 from app.core.limiter import limiter
 from app.core.telemetry import SecurityHeadersMiddleware
-from app.api.api import api_router
+
+# Fail closed at startup if state-grade secrets are missing.
+settings.validate_secrets()
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
@@ -18,6 +22,9 @@ app = FastAPI(
 
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+# Append-only audit log middleware for the classified scope.
+app.add_middleware(AuditMiddleware)
 
 # Security headers middleware
 app.add_middleware(SecurityHeadersMiddleware)
@@ -36,7 +43,12 @@ app.add_middleware(
     allow_headers=["Authorization", "Content-Type", "Accept"],
 )
 
-# Mount versioned API router
+# Mount the public scope (no implicit auth) and the classified scope
+# (gated by require_mfa_verified_user).
+app.include_router(public_router, prefix=f"{settings.API_V1_STR}/public")
+app.include_router(classified_router, prefix=f"{settings.API_V1_STR}/classified")
+
+# Legacy aggregate mount — kept while clients migrate.
 app.include_router(api_router, prefix=settings.API_V1_STR)
 
 

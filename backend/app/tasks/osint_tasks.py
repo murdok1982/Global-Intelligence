@@ -132,7 +132,7 @@ async def _generate_daily_reports_async() -> dict:
 
             osint = OSINTAgent()
             signals = await osint.gather_signals(country.iso_code)
-            summary = synthesis_agent.generate_daily_report(country.name, signals)
+            summary = await synthesis_agent.generate_daily_report(country.name, signals)
 
             report = DailyReport(
                 country_id=country.id,

@@ -4,10 +4,24 @@ node_modules/
 *.env.local
 .env
 .env.*
+!.env.example
+!**/.env.example
 backend/venv/
 backend/__pycache__/
+**/__pycache__/
 *.pyc
 *.pyo
 .pytest_cache/
 /backend/.venv
 .DS_Store
+
+# Signing keys must never be committed
+*.pem
+*.key
+**/signing/*.pem
+**/signing/archive/
+
+# Frontend build artifacts
+frontend/.next/
+frontend/scripts/node-readlink-shim.cjs
+frontend/tsconfig.tsbuildinfo

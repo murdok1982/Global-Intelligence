@@ -1,2 +1,2 @@
 # Exposes router modules
-from app.api.endpoints import stripe, auth
+from app.api.endpoints import auth
