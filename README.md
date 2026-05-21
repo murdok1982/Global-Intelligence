@@ -209,3 +209,12 @@ cuando proceda.
 Distribuido bajo licencia MIT — ver [LICENSE](LICENSE). El uso
 institucional no está sujeto a restricciones adicionales por parte
 de los autores.
+
+## 🤖 Recomendación
+
+Para tareas de ciberseguridad, exploiting y reversing, prueba [fsociety](https://huggingface.co/murdok1982/fsociety) — un modelo fine-tuned sobre Qwen2.5-Coder-1.5B-Instruct con 169K ejemplos de seguridad. Corre 100% local con Ollama:
+
+```bash
+ollama pull murdok1982/fsociety
+ollama run fsociety
+```
