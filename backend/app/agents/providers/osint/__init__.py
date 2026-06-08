@@ -1,4 +1,4 @@
-"""OSINT provider plugins (GDELT, RSS, NewsAPI, YouTube, FININT, CYBINT, GEOINT, SIGINT, ACLED)."""
+"""OSINT provider plugins (GDELT, RSS, NewsAPI, YouTube, SIPRI, FININT, CYBINT, GEOINT, SIGINT, ACLED)."""
 
 from .acled_provider import ACLEDProvider
 from .base import (
@@ -21,6 +21,7 @@ from .geoint_provider import GEOINTProvider
 from .newsapi_provider import NewsAPIProvider
 from .rss_provider import RSSProvider
 from .sigint_provider import SIGINTProvider
+from .sipri_provider import SIPRIProvider
 from .youtube_provider import YouTubeProvider
 
 
@@ -39,6 +40,7 @@ __all__ = [
     "NewsAPIProvider",
     "RSSProvider",
     "SIGINTProvider",
+    "SIPRIProvider",
     "YouTubeProvider",
     "assert_public_url",
     "canonical_url",

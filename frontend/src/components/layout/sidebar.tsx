@@ -1,7 +1,8 @@
 'use client';
 
 import Link from 'next/link';
-import { Globe, FileText, Database, Shield, Zap, Key, Crosshair, Radio } from 'lucide-react';
+import { usePathname } from 'next/navigation';
+import { Globe, FileText, Database, Shield, Zap, Key, Crosshair } from 'lucide-react';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import {
   CLASSIFICATION_COLOR,
@@ -18,8 +19,14 @@ const PROGRESS_BAR: Record<ClassificationLevel, string> = {
 };
 
 export function Sidebar() {
+  const pathname = usePathname();
   const { clearance, isAuthenticated, isLoading } = useCurrentUser();
   const palette = CLASSIFICATION_COLOR[clearance];
+
+  const isActive = (href: string) => {
+    if (href === '/dashboard') return pathname === '/dashboard';
+    return pathname.startsWith(href);
+  };
 
   return (
     <aside
@@ -35,17 +42,17 @@ export function Sidebar() {
 
       {/* Navigation */}
       <nav className="flex-1 w-full px-4 space-y-2" aria-label="Navegación principal">
-        <NavItem href="/dashboard" icon={<Globe size={18} />} label="Mapa Global" active />
-        <NavItem href="/military" icon={<Crosshair size={18} />} label="Intel Militar" />
-        <NavItem href="/intelligence" icon={<Database size={18} />} label="Repositorio Intel" />
-        <NavItem href="/reports" icon={<FileText size={18} />} label="Síntesis Diaria" />
-        <NavItem href="/scenarios" icon={<Zap size={18} />} label="Motor de Escenarios" />
+        <NavItem href="/dashboard" icon={<Globe size={18} />} label="Mapa Global" active={isActive('/dashboard')} />
+        <NavItem href="/military" icon={<Crosshair size={18} />} label="Intel Militar" active={isActive('/military')} />
+        <NavItem href="/intelligence" icon={<Database size={18} />} label="Repositorio Intel" active={isActive('/intelligence')} />
+        <NavItem href="/reports" icon={<FileText size={18} />} label="Síntesis Diaria" active={isActive('/reports')} />
+        <NavItem href="/scenarios" icon={<Zap size={18} />} label="Motor de Escenarios" active={isActive('/scenarios')} />
 
         <div className="pt-6 pb-2 px-2">
           <p className="text-[10px] font-bold tracking-widest text-neutral-600 uppercase">Operaciones</p>
         </div>
-        <NavItem href="/contribute" icon={<Shield size={18} />} label="Intake Seguro" />
-        <NavItem href="/admin" icon={<Key size={18} />} label="Centro de Mando" />
+        <NavItem href="/contribute" icon={<Shield size={18} />} label="Intake Seguro" active={isActive('/contribute')} />
+        <NavItem href="/admin" icon={<Key size={18} />} label="Centro de Mando" active={isActive('/admin')} />
       </nav>
 
       {/* User Status Bottom */}

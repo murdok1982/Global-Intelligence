@@ -1,11 +1,24 @@
 'use client';
 
 import Link from 'next/link';
+import dynamic from 'next/dynamic';
 import { Activity, ShieldAlert, Cpu } from 'lucide-react';
 import { useContinents } from '@/hooks/useContinents';
 import { useAdminStats } from '@/hooks/useAdmin';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ErrorState } from '@/components/ui/error-state';
+
+const GeoIntelligenceMap = dynamic(
+  () => import('@/components/map/GeoIntelligenceMap').then(mod => ({ default: mod.GeoIntelligenceMap })),
+  { 
+    ssr: false, 
+    loading: () => (
+      <div className="w-full h-full bg-neutral-900/50 border border-neutral-800 rounded-lg flex items-center justify-center">
+        <div className="text-neutral-600 font-mono text-sm">Loading geospatial intelligence...</div>
+      </div>
+    )
+  }
+);
 
 const riskColor: Record<string, string> = {
   Low: 'bg-emerald-600/50',
@@ -48,19 +61,8 @@ export default function DashboardPage() {
       </div>
 
       {/* Main Map Area */}
-      <div className="w-full aspect-[21/9] bg-neutral-900/50 border border-neutral-800 rounded-lg relative overflow-hidden flex items-center justify-center p-6 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-blue-950/20 via-neutral-950/20 to-transparent">
-        <div
-          className="absolute inset-0 bg-[url('https://upload.wikimedia.org/wikipedia/commons/8/80/World_map_-_low_resolution.svg')] bg-center bg-no-repeat bg-contain opacity-20 filter invert sepia hue-rotate-[200deg] saturate-[300%]"
-          style={{ maskImage: 'linear-gradient(to bottom, black 50%, transparent 100%)' }}
-        />
-
-        <div className="absolute top-[40%] left-[45%] h-3 w-3 rounded-full bg-blue-500 ring-4 ring-blue-500/20 animate-pulse cursor-pointer" />
-        <div className="absolute top-[35%] left-[20%] h-2 w-2 rounded-full bg-amber-500 ring-2 ring-amber-500/20 animate-pulse cursor-pointer" />
-        <div className="absolute top-[50%] left-[65%] h-2 w-2 rounded-full bg-red-500 ring-4 ring-red-500/20 animate-[pulse_1s_ease-in-out_infinite] cursor-pointer" />
-
-        <div className="absolute bottom-4 left-4 font-mono text-[10px] text-neutral-600 tracking-widest uppercase">
-          [System] Geospatial vector tiles synchronized
-        </div>
+      <div className="w-full aspect-[21/9] bg-neutral-900/50 border border-neutral-800 rounded-lg relative overflow-hidden">
+        <GeoIntelligenceMap />
       </div>
 
       {/* Continents Grid */}

@@ -27,11 +27,17 @@ from typing import Any, Dict, List, Sequence
 
 from app.agents.base import AgentResult, AgentTask, BaseAgent
 from app.agents.providers.osint import (
+    ACLEDProvider,
+    CYBINTProvider,
     GDELTProvider,
+    FININTProvider,
+    GEOINTProvider,
     NewsAPIProvider,
     OSINTProvider,
     OSINTSignal,
     RSSProvider,
+    SIGINTProvider,
+    SIPRIProvider,
     YouTubeProvider,
     canonical_url,
 )
@@ -44,10 +50,16 @@ logger = logging.getLogger(__name__)
 def _default_providers() -> list[OSINTProvider]:
     """Build the default provider set from settings.
 
-    Always-on:
-        * GDELT (no key required)
+    Always-on (no API key required):
+        * GDELT (global events database)
         * RSS curated feed list (30 sources)
         * YouTube OSINT (10 channels via public RSS)
+        * SIPRI (arms transfers)
+        * ACLED (conflict events)
+        * FININT (financial indicators)
+        * GEOINT (geospatial events)
+        * SIGINT (AIS/ADS-B tracking)
+        * CYBINT (cyber threat intelligence)
 
     Conditional:
         * NewsAPI — only if ``settings.NEWSAPI_API_KEY`` is set.
@@ -56,6 +68,12 @@ def _default_providers() -> list[OSINTProvider]:
         GDELTProvider(),
         RSSProvider(),
         YouTubeProvider(),
+        SIPRIProvider(),
+        ACLEDProvider(),
+        FININTProvider(),
+        GEOINTProvider(),
+        SIGINTProvider(),
+        CYBINTProvider(),
     ]
     newsapi = NewsAPIProvider()
     if newsapi._api_key:  # noqa: SLF001

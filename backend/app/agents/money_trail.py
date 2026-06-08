@@ -34,10 +34,10 @@ _EU_SANCTIONS_URL = "https://webgate.ec.europa.eu/fsd/fsf/api/export/xml"
 _UN_SC_SANCTIONS_URL = "https://scsanctions.un.org/resources/xml/en/consolidated.xml"
 
 _COMMDITY_PRICE_URLS = {
-    "oil_brent": "https://api.exchangerate-api.com/v4/latest/USD",
-    "natural_gas": "https://api.exchangerate-api.com/v4/latest/USD",
-    "wheat": "https://api.exchangerate-api.com/v4/latest/USD",
-    "rare_earths": "https://api.exchangerate-api.com/v4/latest/USD",
+    "oil_brent": "https://api.coingecko.com/api/v3/simple/price?ids=brent-crude-oil&vs_currencies=usd",
+    "natural_gas": "https://api.coingecko.com/api/v3/simple/price?ids=natural-gas&vs_currencies=usd",
+    "wheat": "https://api.coingecko.com/api/v3/simple/price?ids=wheat&vs_currencies=usd",
+    "rare_earths": "https://api.coingecko.com/api/v3/simple/price?ids=rare-earth-metals&vs_currencies=usd",
 }
 
 _CRYPTO_EXPLORER_URL = "https://blockchain.info"
@@ -240,11 +240,70 @@ class MoneyTrailAgent(BaseAgent):
 
     @staticmethod
     def _parse_eu_response(xml_text: str) -> List[Dict[str, Any]]:
-        return [{"source": "eu_sanctions", "raw_length": len(xml_text)}]
+        """Parse EU Financial Sanctions File (FSF) XML export."""
+        import xml.etree.ElementTree as ET
+        
+        matches = []
+        try:
+            root = ET.fromstring(xml_text)
+            for sanction in root.findall(".//sanctionEntity"):
+                entity_id = sanction.get("id", "")
+                remark = sanction.find(".//remark")
+                regime = sanction.find(".//regulation")
+                
+                match_data = {
+                    "source": "eu_sanctions",
+                    "entity_id": entity_id,
+                    "regulation": regime.get("code", "") if regime is not None else "",
+                    "remark": remark.text if remark is not None and remark.text else "",
+                }
+                matches.append(match_data)
+        except ET.ParseError:
+            matches.append({"source": "eu_sanctions", "error": "XML parse failed", "raw_length": len(xml_text)})
+        
+        return matches
 
     @staticmethod
     def _parse_un_response(xml_text: str, entity_name: Optional[str]) -> List[Dict[str, Any]]:
-        return [{"source": "un_sanctions", "raw_length": len(xml_text)}]
+        """Parse UN Security Council consolidated sanctions list XML."""
+        import xml.etree.ElementTree as ET
+        
+        matches = []
+        try:
+            root = ET.fromstring(xml_text)
+            for individual in root.findall(".//INDIVIDUAL"):
+                full_name = " ".join(filter(None, [
+                    individual.findtext("FIRST_NAME", ""),
+                    individual.findtext("SECOND_NAME", ""),
+                    individual.findtext("THIRD_NAME", ""),
+                ])).strip()
+                
+                if entity_name and entity_name.lower() in full_name.lower():
+                    matches.append({
+                        "source": "un_sanctions",
+                        "type": "individual",
+                        "full_name": full_name,
+                        "list_type": individual.findtext("UN_LIST_TYPE", ""),
+                        "reference_number": individual.findtext("REFERENCE_NUMBER", ""),
+                        "listed_on": individual.findtext("LISTED_ON", ""),
+                    })
+            
+            for entity in root.findall(".//ENTITY"):
+                entity_full_name = entity.findtext("FIRST_NAME", "")
+                
+                if entity_name and entity_name.lower() in entity_full_name.lower():
+                    matches.append({
+                        "source": "un_sanctions",
+                        "type": "entity",
+                        "full_name": entity_full_name,
+                        "list_type": entity.findtext("UN_LIST_TYPE", ""),
+                        "reference_number": entity.findtext("REFERENCE_NUMBER", ""),
+                        "listed_on": entity.findtext("LISTED_ON", ""),
+                    })
+        except ET.ParseError:
+            matches.append({"source": "un_sanctions", "error": "XML parse failed", "raw_length": len(xml_text)})
+        
+        return matches
 
     @staticmethod
     async def _empty_result() -> Dict[str, Any]:
