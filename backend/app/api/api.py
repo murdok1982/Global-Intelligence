@@ -23,6 +23,7 @@ from fastapi import APIRouter, Depends
 from app.api.deps_classified import require_mfa_verified_user
 from app.api.endpoints import (
     admin,
+    agents,
     auth,
     chat,
     continents,
@@ -58,6 +59,7 @@ classified_router.include_router(
 classified_router.include_router(
     signing.admin_router, prefix="/admin/signing", tags=["signing"]
 )
+classified_router.include_router(agents.router, prefix="/agents", tags=["agents"])
 
 
 # --- Legacy aggregator (no auth enforcement) --------------------------------

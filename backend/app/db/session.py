@@ -44,6 +44,9 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
         yield session
 
 
+get_session = get_db
+
+
 async def set_user_context(
     session: AsyncSession,
     clearance: int,

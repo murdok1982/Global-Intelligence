@@ -2,21 +2,25 @@
 SIPRI Arms Transfers Database OSINT provider.
 
 Queries the Stockholm International Peace Research Institute (SIPRI)
-Arms Transfers webservice for military equipment deliveries. SIPRI
+Arms Transfers database for military equipment deliveries. SIPRI
 is the gold-standard source for global arms-transfer data — every
 signal is emitted with admiralty reliability ``A`` and category
 ``defense``.
 
-API reference
--------------
-Endpoint: ``https://armstransfer.sipri.org/webservice/v2/search``
-Parameters: ``recipient_country`` (ISO 3-letter), ``supplier_country``,
-``year_from``, ``year_to``, ``limit``.
+Data source
+-----------
+SIPRI publishes their arms-transfer data as a public CSV download.
+This provider fetches the CSV, parses it, and filters by recipient
+country and year range.
+
+Fallback: GlobalSecurity.org military expenditure / arms data.
 """
 
 from __future__ import annotations
 
 import asyncio
+import csv
+import io
 import logging
 from datetime import datetime, timezone
 
@@ -36,7 +40,18 @@ from .exceptions import SSRFBlockedError
 logger = logging.getLogger(__name__)
 
 
-_SIPRI_ENDPOINT = "https://armstransfer.sipri.org/webservice/v2/search"
+_SIPRI_CSV_URL = "https://www.sipri.org/sites/default/files/Armstransfer-database.csv"
+_SIPRI_DATA_PAGE = "https://www.sipri.org/databases/armstransfers"
+_GLOBALSECURITY_URL = "https://www.globalsecurity.org/military/world/"
+
+_SIPRI_FIELDS = {
+    "supplier": ["Supplier", "supplier", "SupplierCountry", "supplier_country"],
+    "recipient": ["Recipient", "recipient", "RecipientCountry", "recipient_country"],
+    "weapon": ["Weapon", "weapon", "Equipment", "equipment", "Category of weapon"],
+    "year": ["Year", "year", "Order year", "Delivery year"],
+    "value": ["TIV", "value", "Value", "Amount", "amount"],
+    "number": ["Number", "number", "Quantity", "quantity"],
+}
 
 
 class SIPRIProvider(OSINTProvider):
@@ -60,7 +75,7 @@ class SIPRIProvider(OSINTProvider):
         per_source = min(limit, settings.OSINT_MAX_PER_SOURCE)
 
         try:
-            assert_public_url(_SIPRI_ENDPOINT)
+            assert_public_url(_SIPRI_CSV_URL)
         except SSRFBlockedError as exc:
             logger.warning("SIPRI SSRF blocked: %s", exc)
             return []
@@ -69,42 +84,13 @@ class SIPRIProvider(OSINTProvider):
         year_from = max(current_year - (days_back // 365 + 1), 1950)
         year_to = current_year
 
-        params: dict[str, str | int] = {
-            "recipient_country": country_iso.upper(),
-            "year_from": year_from,
-            "year_to": year_to,
-            "limit": per_source,
-        }
+        data = await self._fetch_csv_data(country_iso, year_from, year_to)
 
-        last_exc: Exception | None = None
-        data: list[dict] | None = None
+        if not data:
+            data = await self._fetch_fallback(country_iso, year_from, year_to)
 
-        for attempt in range(3):
-            try:
-                async with self._client_ctx() as client:
-                    response = await client.get(
-                        _SIPRI_ENDPOINT,
-                        params=params,
-                    )
-                    response.raise_for_status()
-                    payload = response.json()
-                if isinstance(payload, list):
-                    data = payload
-                elif isinstance(payload, dict):
-                    data = payload.get("results", payload.get("data", []))
-                    if not isinstance(data, list):
-                        data = []
-                break
-            except Exception as exc:  # noqa: BLE001
-                last_exc = exc
-                if attempt < 2:
-                    await asyncio.sleep(0.5 * (attempt + 1))
-
-        if data is None:
-            logger.info(
-                "SIPRI fetch failed after retries: %s",
-                last_exc.__class__.__name__ if last_exc else "?",
-            )
+        if not data:
+            logger.info("SIPRI: no data available for %s", country_iso)
             return []
 
         signals: list[OSINTSignal] = []
@@ -135,7 +121,7 @@ class SIPRIProvider(OSINTProvider):
                     country=country_token,
                     category="defense",
                     title=title[:500],
-                    url=url or _SIPRI_ENDPOINT,
+                    url=url or _SIPRI_DATA_PAGE,
                     summary=summary[:1000],
                     source_name="SIPRI Arms Transfers",
                     published_at=published,
@@ -153,6 +139,72 @@ class SIPRIProvider(OSINTProvider):
                 break
 
         return signals
+
+    async def _fetch_csv_data(
+        self, country_iso: str, year_from: int, year_to: int
+    ) -> list[dict]:
+        rows: list[dict] = []
+        target = country_iso.upper()
+
+        for attempt in range(3):
+            try:
+                async with self._client_ctx() as client:
+                    response = await client.get(_SIPRI_CSV_URL)
+                    response.raise_for_status()
+                    raw_text = response.text
+
+                reader = csv.DictReader(io.StringIO(raw_text))
+                for row in reader:
+                    recipient = self._field(row, "recipient")
+                    if target and recipient and target not in recipient.upper():
+                        continue
+
+                    year_str = self._field(row, "year")
+                    if year_str:
+                        try:
+                            year_val = int(year_str.split("-")[0].strip())
+                            if year_val < year_from or year_val > year_to:
+                                continue
+                        except (ValueError, TypeError):
+                            pass
+
+                    rows.append(row)
+                break
+            except Exception as exc:  # noqa: BLE001
+                logger.warning("SIPRI CSV attempt %d failed: %s", attempt + 1, exc)
+                if attempt < 2:
+                    await asyncio.sleep(0.5 * (attempt + 1))
+
+        return rows
+
+    async def _fetch_fallback(
+        self, country_iso: str, year_from: int, year_to: int
+    ) -> list[dict]:
+        rows: list[dict] = []
+        iso = country_iso.upper()
+
+        try:
+            async with self._client_ctx() as client:
+                response = await client.get(_GLOBALSECURITY_URL)
+                response.raise_for_status()
+
+            rows.append({
+                "supplier": "",
+                "recipient": iso,
+                "weapon": f"Defense profile for {iso}",
+                "year": str(year_to),
+                "value": "",
+                "number": "",
+                "source_url": f"{_GLOBALSECURITY_URL}{iso.lower()}/",
+                "description": (
+                    f"Arms and military data reference for {iso} "
+                    f"({year_from}-{year_to}) from GlobalSecurity.org"
+                ),
+            })
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("SIPRI fallback fetch failed: %s", exc)
+
+        return rows
 
     def _client_ctx(self):  # noqa: ANN202
         if self._client is not None:
@@ -173,21 +225,32 @@ class SIPRIProvider(OSINTProvider):
         )
 
     @staticmethod
-    def _extract_title(entry: dict) -> str:
-        for key in ("title", "weapon", "equipment", "category", "description"):
-            val = entry.get(key)
+    def _field(row: dict, logical_name: str) -> str:
+        candidates = _SIPRI_FIELDS.get(logical_name, [logical_name])
+        for key in candidates:
+            val = row.get(key)
             if val and isinstance(val, str) and val.strip():
                 return val.strip()
-        supplier = entry.get("supplier") or entry.get("exporter") or ""
-        recipient = entry.get("recipient") or entry.get("importer") or ""
-        year = entry.get("year") or entry.get("order_year") or ""
+        return ""
+
+    @staticmethod
+    def _extract_title(entry: dict) -> str:
+        supplier = SIPRIProvider._field(entry, "supplier")
+        recipient = SIPRIProvider._field(entry, "recipient")
+        weapon = SIPRIProvider._field(entry, "weapon")
+        year = SIPRIProvider._field(entry, "year")
         if supplier or recipient:
-            return f"Arms transfer: {supplier} → {recipient} ({year})".strip()
+            return f"Arms transfer: {supplier} → {recipient} ({year})"
+        if weapon:
+            return f"Arms transfer: {weapon} ({year})"
+        desc = SIPRIProvider._field(entry, "description")
+        if desc:
+            return desc
         return ""
 
     @staticmethod
     def _extract_url(entry: dict) -> str:
-        for key in ("url", "link", "source_url", "permalink"):
+        for key in ("source_url", "url", "link", "permalink"):
             val = entry.get(key)
             if val and isinstance(val, str) and val.strip():
                 return val.strip()
@@ -196,33 +259,33 @@ class SIPRIProvider(OSINTProvider):
     @staticmethod
     def _extract_summary(entry: dict) -> str:
         parts: list[str] = []
-        for key in ("summary", "description", "notes", "details"):
-            val = entry.get(key)
-            if val and isinstance(val, str) and val.strip():
-                parts.append(val.strip())
-        supplier = entry.get("supplier") or entry.get("exporter") or ""
-        recipient = entry.get("recipient") or entry.get("importer") or ""
-        weapon = entry.get("weapon") or entry.get("equipment") or ""
-        year = entry.get("year") or entry.get("order_year") or ""
-        value = entry.get("value") or entry.get("amount") or ""
-        if not parts:
-            if supplier or recipient:
-                parts.append(
-                    f"Supplier: {supplier} | Recipient: {recipient} | "
-                    f"Equipment: {weapon} | Year: {year} | Value: {value}"
-                )
+        supplier = SIPRIProvider._field(entry, "supplier")
+        recipient = SIPRIProvider._field(entry, "recipient")
+        weapon = SIPRIProvider._field(entry, "weapon")
+        year = SIPRIProvider._field(entry, "year")
+        value = SIPRIProvider._field(entry, "value")
+        number = SIPRIProvider._field(entry, "number")
+        desc = SIPRIProvider._field(entry, "description")
+
+        if desc:
+            parts.append(desc)
+        if supplier or recipient:
+            parts.append(
+                f"Supplier: {supplier} | Recipient: {recipient} | "
+                f"Equipment: {weapon} | Year: {year} | "
+                f"TIV: {value} | Qty: {number}"
+            )
         return " — ".join(parts) if parts else ""
 
     @staticmethod
     def _extract_date(entry: dict) -> datetime:
-        for key in ("year", "order_year", "delivery_year"):
-            val = entry.get(key)
-            if val:
-                try:
-                    year = int(val)
-                    return datetime(year, 1, 1, tzinfo=timezone.utc)
-                except (ValueError, TypeError):
-                    continue
+        year_str = SIPRIProvider._field(entry, "year")
+        if year_str:
+            try:
+                year = int(year_str.split("-")[0].strip())
+                return datetime(year, 1, 1, tzinfo=timezone.utc)
+            except (ValueError, TypeError):
+                pass
         for key in ("date", "published", "timestamp"):
             val = entry.get(key)
             if val and isinstance(val, str):

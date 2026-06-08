@@ -19,6 +19,8 @@ class Settings(BaseSettings):
     API_V1_STR: str = "/api/v1"
     ENV: str = Field(default="development")
 
+    CORS_ORIGINS: str = Field(default="http://localhost:3000,http://127.0.0.1:3000")
+
     # Security
     SECRET_KEY: str = Field(default="")
     REFRESH_SECRET_KEY: str = Field(default="")
@@ -93,6 +95,13 @@ class Settings(BaseSettings):
     TWITTER_BEARER_TOKEN: str = Field(default="")
     TELEGRAM_API_ID: str = Field(default="")
     TELEGRAM_API_HASH: str = Field(default="")
+
+    ALPHA_VANTAGE_API_KEY: str = Field(default="")
+    EIA_API_KEY: str = Field(default="")
+    WORLDBANK_COMMODITY_URL: str = Field(
+        default="https://api.worldbank.org/v2/country/USA/indicator/FP.CPI.TOTL?format=json"
+    )
+    METALPRICE_API_KEY: str = Field(default="")
 
     def validate_secrets(self) -> None:
         env = self.ENV

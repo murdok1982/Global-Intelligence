@@ -92,7 +92,51 @@ def _install_sqlite_uuid_processors() -> None:
 _install_sqlite_uuid_processors()
 
 
+# Teach SQLAlchemy to render postgresql.JSONB as JSON on SQLite.
+from sqlalchemy.dialects.postgresql import JSONB as PG_JSONB  # noqa: E402
+from sqlalchemy.types import JSON  # noqa: E402
+
+
+@compiles(PG_JSONB, "sqlite")
+def _sqlite_jsonb_compile(element, compiler, **kw):  # noqa: D401
+    return "JSON"
+
+
 from app.db.base import Base  # noqa: E402
+
+
+# Patch passlib/bcrypt incompatibility (passlib 1.7.4 vs bcrypt >= 4.1).
+def _patch_bcrypt_compat() -> None:
+    """Replace passlib-based password helpers with native bcrypt."""
+    try:
+        from app.core.security import get_password_hash as _orig_hash
+        _orig_hash("test_probe")
+    except Exception:
+        import bcrypt as _bcrypt
+
+        def _native_hash(password: str) -> str:
+            return _bcrypt.hashpw(
+                password.encode("utf-8"), _bcrypt.gensalt(rounds=4)
+            ).decode("ascii")
+
+        def _native_verify(plain: str, hashed: str) -> bool:
+            try:
+                return _bcrypt.checkpw(
+                    plain.encode("utf-8"), hashed.encode("ascii")
+                )
+            except Exception:
+                return False
+
+        import app.core.security as _sec_mod
+        _sec_mod.get_password_hash = _native_hash
+        _sec_mod.verify_password = _native_verify
+
+        import app.api.endpoints.auth as _auth_mod
+        _auth_mod.get_password_hash = _native_hash
+        _auth_mod.verify_password = _native_verify
+
+
+_patch_bcrypt_compat()
 
 
 @pytest.fixture(scope="session")

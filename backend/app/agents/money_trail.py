@@ -25,6 +25,7 @@ import httpx
 
 from app.agents.base import AgentResult, AgentTask, BaseAgent
 from app.core.classification import ClassificationLevel, TLP
+from app.core.config import settings
 from app.services.llm import LLMTask, llm_router
 
 logger = logging.getLogger(__name__)
@@ -33,11 +34,33 @@ _OFAC_SDN_URL = "https://api.ofac-api.com/v4/sdn"
 _EU_SANCTIONS_URL = "https://webgate.ec.europa.eu/fsd/fsf/api/export/xml"
 _UN_SC_SANCTIONS_URL = "https://scsanctions.un.org/resources/xml/en/consolidated.xml"
 
-_COMMDITY_PRICE_URLS = {
-    "oil_brent": "https://api.coingecko.com/api/v3/simple/price?ids=brent-crude-oil&vs_currencies=usd",
-    "natural_gas": "https://api.coingecko.com/api/v3/simple/price?ids=natural-gas&vs_currencies=usd",
-    "wheat": "https://api.coingecko.com/api/v3/simple/price?ids=wheat&vs_currencies=usd",
-    "rare_earths": "https://api.coingecko.com/api/v3/simple/price?ids=rare-earth-metals&vs_currencies=usd",
+_ALPHA_VANTAGE_BASE = "https://www.alphavantage.co/query"
+_EIA_BASE = "https://api.eia.gov/v2"
+_WORLDBANK_BASE = "https://api.worldbank.org/v2"
+_METALPRICE_BASE = "https://api.metalpriceapi.com/v1/latest"
+
+_COMMODITY_CONFIG = {
+    "oil_brent": {
+        "symbol": "BRT",
+        "api": "alphavantage",
+        "label": "Brent Crude Oil (USD/bbl)",
+    },
+    "natural_gas": {
+        "series_id": "NG.RNGC1.D",
+        "api": "eia",
+        "label": "Natural Gas (USD/MMBtu)",
+    },
+    "wheat": {
+        "indicator": "PPWHEAMT",
+        "api": "worldbank",
+        "label": "Wheat (USD/MT)",
+    },
+    "rare_earths": {
+        "base": "USD",
+        "symbols": "La,Nd,Dy",
+        "api": "metalprice",
+        "label": "Rare Earth Elements Index",
+    },
 }
 
 _CRYPTO_EXPLORER_URL = "https://blockchain.info"
@@ -168,16 +191,24 @@ class MoneyTrailAgent(BaseAgent):
 
         async with httpx.AsyncClient(timeout=_HTTP_TIMEOUT) as client:
             for commodity in commodities:
+                config = _COMMODITY_CONFIG.get(commodity)
+                if not config:
+                    prices[commodity] = {"status": "error", "detail": "unknown commodity"}
+                    continue
+
+                api_type = config["api"]
                 try:
-                    url = _COMMDITY_PRICE_URLS.get(commodity, _COMMDITY_PRICE_URLS["oil_brent"])
-                    resp = await client.get(url)
-                    if resp.status_code == 200:
-                        prices[commodity] = {
-                            "status": "ok",
-                            "data": resp.json(),
-                        }
+                    if api_type == "alphavantage":
+                        result = await self._fetch_alphavantage(client, config)
+                    elif api_type == "eia":
+                        result = await self._fetch_eia(client, config)
+                    elif api_type == "worldbank":
+                        result = await self._fetch_worldbank(client, config)
+                    elif api_type == "metalprice":
+                        result = await self._fetch_metalprice(client, config)
                     else:
-                        prices[commodity] = {"status": "error", "code": resp.status_code}
+                        result = {"status": "error", "detail": "unsupported api type"}
+                    prices[commodity] = result
                 except Exception as exc:
                     logger.warning(
                         "MoneyTrail: commodity %s fetch failed: %s", commodity, exc
@@ -185,6 +216,119 @@ class MoneyTrailAgent(BaseAgent):
                     prices[commodity] = {"status": "error", "detail": str(exc)}
 
         return prices
+
+    async def _fetch_alphavantage(
+        self, client: httpx.AsyncClient, config: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        api_key = settings.ALPHA_VANTAGE_API_KEY or "demo"
+        params = {
+            "function": "GLOBAL_QUOTE",
+            "symbol": config["symbol"],
+            "apikey": api_key,
+        }
+        resp = await client.get(_ALPHA_VANTAGE_BASE, params=params)
+        if resp.status_code != 200:
+            return {"status": "error", "code": resp.status_code, "label": config["label"]}
+
+        data = resp.json()
+        quote = data.get("Global Quote", {})
+        if not quote:
+            return {"status": "no_data", "label": config["label"]}
+
+        price = quote.get("05. price")
+        change_pct = quote.get("10. change percent")
+        return {
+            "status": "ok",
+            "label": config["label"],
+            "price": float(price) if price else None,
+            "change_percent": float(change_pct.rstrip("%")) if change_pct else None,
+            "source": "Alpha Vantage",
+        }
+
+    async def _fetch_eia(
+        self, client: httpx.AsyncClient, config: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        api_key = settings.EIA_API_KEY or "demo"
+        url = f"{_EIA_BASE}/natural-gas/pri/sum/data/"
+        params = {
+            "api_key": api_key,
+            "frequency": "daily",
+            "data[0]": "value",
+            "facets[series][]": config["series_id"],
+            "sort[0][column]": "period",
+            "sort[0][direction]": "desc",
+            "length": 1,
+        }
+        resp = await client.get(url, params=params)
+        if resp.status_code != 200:
+            return {"status": "error", "code": resp.status_code, "label": config["label"]}
+
+        data = resp.json()
+        series_data = data.get("response", {}).get("data", [])
+        if not series_data:
+            return {"status": "no_data", "label": config["label"]}
+
+        latest = series_data[0]
+        return {
+            "status": "ok",
+            "label": config["label"],
+            "price": float(latest.get("value", 0)),
+            "period": latest.get("period", ""),
+            "source": "EIA",
+        }
+
+    async def _fetch_worldbank(
+        self, client: httpx.AsyncClient, config: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        url = f"{_WORLDBANK_BASE}/country/USA/indicator/{config['indicator']}"
+        params = {"format": "json", "per_page": 1, "date": "2024"}
+        resp = await client.get(url, params=params)
+        if resp.status_code != 200:
+            return {"status": "error", "code": resp.status_code, "label": config["label"]}
+
+        data = resp.json()
+        if isinstance(data, list) and len(data) > 1:
+            records = data[1]
+            if records and isinstance(records, list):
+                latest = records[0]
+                return {
+                    "status": "ok",
+                    "label": config["label"],
+                    "price": latest.get("value"),
+                    "period": latest.get("date", ""),
+                    "source": "World Bank",
+                }
+        return {"status": "no_data", "label": config["label"]}
+
+    async def _fetch_metalprice(
+        self, client: httpx.AsyncClient, config: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        api_key = settings.METALPRICE_API_KEY
+        if not api_key:
+            return {
+                "status": "no_api_key",
+                "label": config["label"],
+                "detail": "METALPRICE_API_KEY not configured",
+            }
+
+        params = {
+            "api_key": api_key,
+            "base": config["base"],
+            "currencies": config["symbols"],
+        }
+        resp = await client.get(_METALPRICE_BASE, params=params)
+        if resp.status_code != 200:
+            return {"status": "error", "code": resp.status_code, "label": config["label"]}
+
+        data = resp.json()
+        rates = data.get("rates", {})
+        return {
+            "status": "ok",
+            "label": config["label"],
+            "rates": rates,
+            "timestamp": data.get("timestamp", ""),
+            "source": "MetalPriceAPI",
+        }
 
     async def _track_crypto_flows(
         self, addresses: List[str]
