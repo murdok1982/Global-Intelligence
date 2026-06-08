@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 from dataclasses import asdict
 from typing import Any, Dict, List, Optional
 
@@ -308,8 +309,6 @@ async def execute_full_analysis(
         payload={"country_iso": body.country_iso, "days_back": body.days_back},
     )
 
-    import asyncio
-
     eagle_result, money_result, cyber_result, narrative_result, osint_result = (
         await asyncio.gather(
             eagle_eye_agent.run(eagle_task),
@@ -344,7 +343,17 @@ async def execute_full_analysis(
             "agent_signals": agent_signals,
         },
     )
-    warning_result = await early_warning_agent.run(warning_task)
+    
+    try:
+        warning_result = await early_warning_agent.run(warning_task)
+    except Exception as e:
+        warning_result = AgentResult(
+            kind="early_warning",
+            classification=ClassificationLevel.SECRET,
+            tlp=TLP.RED,
+            content={"error": str(e)},
+            metadata={"error": True},
+        )
 
     return {
         "eagle_eye": _serialize_result(eagle_result) if isinstance(eagle_result, AgentResult) else {"error": str(eagle_result)},

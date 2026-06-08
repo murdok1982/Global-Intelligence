@@ -18,6 +18,7 @@ classification level permits. Errors are captured in metadata.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from typing import Any, Dict, List, Optional
 
@@ -381,7 +382,7 @@ class MoneyTrailAgent(BaseAgent):
     @staticmethod
     def _parse_eu_response(xml_text: str) -> List[Dict[str, Any]]:
         """Parse EU Financial Sanctions File (FSF) XML export."""
-        import xml.etree.ElementTree as ET
+        import defusedxml.ElementTree as ET
         
         matches = []
         try:
@@ -405,7 +406,7 @@ class MoneyTrailAgent(BaseAgent):
 
     @staticmethod
     def _parse_ofac_xml(xml_text: str, entity_name: str) -> List[Dict[str, Any]]:
-        import xml.etree.ElementTree as ET
+        import defusedxml.ElementTree as ET
 
         matches = []
         try:
@@ -438,7 +439,7 @@ class MoneyTrailAgent(BaseAgent):
     @staticmethod
     def _parse_un_response(xml_text: str, entity_name: Optional[str]) -> List[Dict[str, Any]]:
         """Parse UN Security Council consolidated sanctions list XML."""
-        import xml.etree.ElementTree as ET
+        import defusedxml.ElementTree as ET
         
         matches = []
         try:
@@ -483,8 +484,6 @@ class MoneyTrailAgent(BaseAgent):
 
 
 async def _safe_gather(coros: list) -> list:
-    import asyncio
-
     results = await asyncio.gather(*coros, return_exceptions=True)
     return [r if not isinstance(r, Exception) else {"error": str(r)} for r in results]
 
