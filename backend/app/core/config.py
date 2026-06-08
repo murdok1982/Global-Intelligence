@@ -1,9 +1,9 @@
 import os
+from pydantic import Field
 from pydantic_settings import BaseSettings
 
 
 def _require(var: str) -> str:
-    """Falla en startup si una variable de entorno crítica no está definida."""
     value = os.getenv(var)
     if not value:
         raise ValueError(
@@ -13,32 +13,25 @@ def _require(var: str) -> str:
     return value
 
 
-def _bool_env(var: str, default: bool) -> bool:
-    raw = os.getenv(var)
-    if raw is None:
-        return default
-    return raw.strip().lower() in {"1", "true", "yes", "on"}
-
-
 class Settings(BaseSettings):
     PROJECT_NAME: str = "Global Intelligence API"
     VERSION: str = "1.0.0"
     API_V1_STR: str = "/api/v1"
-    ENV: str = os.getenv("ENV", "development")
+    ENV: str = Field(default="development")
 
     # Security
-    SECRET_KEY: str = os.getenv("SECRET_KEY", "")
-    REFRESH_SECRET_KEY: str = os.getenv("REFRESH_SECRET_KEY", "")
+    SECRET_KEY: str = Field(default="")
+    REFRESH_SECRET_KEY: str = Field(default="")
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 15
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
 
     # PostgreSQL Database
-    POSTGRES_USER: str = os.getenv("POSTGRES_USER", "global_user")
-    POSTGRES_PASSWORD: str = os.getenv("POSTGRES_PASSWORD", "")
-    POSTGRES_SERVER: str = os.getenv("POSTGRES_SERVER", "localhost")
-    POSTGRES_PORT: str = os.getenv("POSTGRES_PORT", "5432")
-    POSTGRES_DB: str = os.getenv("POSTGRES_DB", "global_intelligence")
+    POSTGRES_USER: str = Field(default="global_user")
+    POSTGRES_PASSWORD: str = Field(default="")
+    POSTGRES_SERVER: str = Field(default="localhost")
+    POSTGRES_PORT: str = Field(default="5432")
+    POSTGRES_DB: str = Field(default="global_intelligence")
 
     @property
     def SQLALCHEMY_DATABASE_URI(self) -> str:
@@ -48,101 +41,65 @@ class Settings(BaseSettings):
         )
 
     # Redis
-    REDIS_URL: str = os.getenv("REDIS_URL", "redis://localhost:6379/0")
-    REDIS_PASSWORD: str = os.getenv("REDIS_PASSWORD", "")
+    REDIS_URL: str = Field(default="redis://localhost:6379/0")
+    REDIS_PASSWORD: str = Field(default="")
 
     # ------------------------------------------------------------------
-    # LLM providers — see app/services/llm/router.py
+    # LLM providers
     # ------------------------------------------------------------------
-    # Primary local provider (sovereign by default).
-    OLLAMA_BASE_URL: str = os.getenv("OLLAMA_BASE_URL", "http://ollama:11434")
-    OLLAMA_MODEL: str = os.getenv("OLLAMA_MODEL", "llama3.1:8b-instruct-q4_K_M")
-    OLLAMA_TIMEOUT: int = int(os.getenv("OLLAMA_TIMEOUT", "120"))
+    OLLAMA_BASE_URL: str = Field(default="http://ollama:11434")
+    OLLAMA_MODEL: str = Field(default="llama3.1:8b-instruct-q4_K_M")
+    OLLAMA_TIMEOUT: int = Field(default=120, ge=1)
 
-    # Optional second local provider — empty disables it.
-    VLLM_BASE_URL: str = os.getenv("VLLM_BASE_URL", "")
-    VLLM_MODEL: str = os.getenv("VLLM_MODEL", "meta-llama/Meta-Llama-3.1-8B-Instruct")
-    VLLM_TIMEOUT: int = int(os.getenv("VLLM_TIMEOUT", "120"))
+    VLLM_BASE_URL: str = Field(default="")
+    VLLM_MODEL: str = Field(default="meta-llama/Meta-Llama-3.1-8B-Instruct")
+    VLLM_TIMEOUT: int = Field(default=120, ge=1)
 
-    # External fallback. Allowed ONLY for PUBLIC tasks. Disabled by
-    # default in state-grade deployments.
-    OPENROUTER_API_KEY: str = os.getenv("OPENROUTER_API_KEY", "")
-    ENABLE_OPENROUTER_FALLBACK: bool = _bool_env("ENABLE_OPENROUTER_FALLBACK", False)
-    OPENROUTER_DEFAULT_MODEL: str = os.getenv(
-        "OPENROUTER_DEFAULT_MODEL", "anthropic/claude-3-haiku"
-    )
+    OPENROUTER_API_KEY: str = Field(default="")
+    ENABLE_OPENROUTER_FALLBACK: bool = Field(default=False)
+    OPENROUTER_DEFAULT_MODEL: str = Field(default="anthropic/claude-3-haiku")
 
-    # When true, any task with classification >= CONFIDENTIAL is
-    # rejected if no local provider is reachable. Default: true.
-    STATE_GRADE_MODE: bool = _bool_env("STATE_GRADE_MODE", True)
+    STATE_GRADE_MODE: bool = Field(default=True)
 
     # ------------------------------------------------------------------
     # MFA / second factor
     # ------------------------------------------------------------------
-    # AES-GCM key used to encrypt MFA TOTP secrets at rest. Hex-encoded,
-    # 32 bytes (64 hex chars). Generate with `openssl rand -hex 32`.
-    # REQUIRED when STATE_GRADE_MODE=true.
-    MFA_ENCRYPTION_KEY: str = os.getenv("MFA_ENCRYPTION_KEY", "")
-    # Secret used to sign the short-lived MFA challenge token issued by
-    # /auth/login when the user has two_factor_enabled=True. Must be
-    # distinct from SECRET_KEY / REFRESH_SECRET_KEY so a leak of either
-    # cannot mint challenge tokens. Generate with `openssl rand -hex 32`.
-    MFA_CHALLENGE_SECRET: str = os.getenv("MFA_CHALLENGE_SECRET", "")
-    # TTL of the MFA challenge token (seconds). The user must complete
-    # /auth/mfa/verify within this window or re-authenticate.
-    MFA_CHALLENGE_TTL_SECONDS: int = int(os.getenv("MFA_CHALLENGE_TTL_SECONDS", "300"))
-    # Number of recovery codes generated on enrollment.
-    MFA_RECOVERY_CODES_COUNT: int = int(os.getenv("MFA_RECOVERY_CODES_COUNT", "10"))
-    # Issuer label shown by authenticator apps.
-    MFA_ISSUER: str = os.getenv("MFA_ISSUER", "Global Intelligence")
+    MFA_ENCRYPTION_KEY: str = Field(default="")
+    MFA_CHALLENGE_SECRET: str = Field(default="")
+    MFA_CHALLENGE_TTL_SECONDS: int = Field(default=300, ge=1)
+    MFA_RECOVERY_CODES_COUNT: int = Field(default=10, ge=1)
+    MFA_ISSUER: str = Field(default="Global Intelligence")
 
     # ------------------------------------------------------------------
-    # Report signing — Ed25519
+    # Report signing
     # ------------------------------------------------------------------
-    # PEM PKCS#8 files. In state-grade deployments these MUST point at
-    # a path mounted from an encrypted volume or HSM/KMS-backed file.
-    # If absent and STATE_GRADE_MODE=true, the publication endpoint
-    # refuses to mark reports as published.
-    SIGNING_PRIVATE_KEY_PATH: str = os.getenv(
-        "SIGNING_PRIVATE_KEY_PATH", "/var/lib/gi/signing/ed25519_private.pem"
-    )
-    SIGNING_PUBLIC_KEY_PATH: str = os.getenv(
-        "SIGNING_PUBLIC_KEY_PATH", "/var/lib/gi/signing/ed25519_public.pem"
-    )
+    SIGNING_PRIVATE_KEY_PATH: str = Field(default="/var/lib/gi/signing/ed25519_private.pem")
+    SIGNING_PUBLIC_KEY_PATH: str = Field(default="/var/lib/gi/signing/ed25519_public.pem")
 
     # ------------------------------------------------------------------
     # OSINT providers
     # ------------------------------------------------------------------
-    # Free-tier NewsAPI key. Empty disables NewsAPIProvider.
-    NEWSAPI_API_KEY: str = os.getenv("NEWSAPI_API_KEY", "")
-    # GDELT 2.0 document API base URL. The default is the public
-    # endpoint — change only for self-hosted mirrors.
-    GDELT_BASE_URL: str = os.getenv(
-        "GDELT_BASE_URL", "https://api.gdeltproject.org/api/v2/doc/doc"
-    )
-    # Per-provider HTTP timeout in seconds.
-    OSINT_HTTP_TIMEOUT: int = int(os.getenv("OSINT_HTTP_TIMEOUT", "30"))
-    # Hard cap on records pulled from any single source. Belt-and-braces
-    # for upstreams that ignore our explicit limit parameter.
-    OSINT_MAX_PER_SOURCE: int = int(os.getenv("OSINT_MAX_PER_SOURCE", "25"))
-    SHODAN_API_KEY: str = os.getenv("SHODAN_API_KEY", "")
-    GREYNOISE_API_KEY: str = os.getenv("GREYNOISE_API_KEY", "")
-    COPERNICUS_USERNAME: str = os.getenv("COPERNICUS_USERNAME", "")
-    COPERNICUS_PASSWORD: str = os.getenv("COPERNICUS_PASSWORD", "")
-    MARINETRAFFIC_API_KEY: str = os.getenv("MARINETRAFFIC_API_KEY", "")
-    ACLED_API_KEY: str = os.getenv("ACLED_API_KEY", "")
-    ACLED_EMAIL: str = os.getenv("ACLED_EMAIL", "")
+    NEWSAPI_API_KEY: str = Field(default="")
+    GDELT_BASE_URL: str = Field(default="https://api.gdeltproject.org/api/v2/doc/doc")
+    OSINT_HTTP_TIMEOUT: int = Field(default=30, ge=1)
+    OSINT_MAX_PER_SOURCE: int = Field(default=25, ge=1)
+    SHODAN_API_KEY: str = Field(default="")
+    GREYNOISE_API_KEY: str = Field(default="")
+    COPERNICUS_USERNAME: str = Field(default="")
+    COPERNICUS_PASSWORD: str = Field(default="")
+    MARINETRAFFIC_API_KEY: str = Field(default="")
+    ACLED_API_KEY: str = Field(default="")
+    ACLED_EMAIL: str = Field(default="")
+    TWITTER_BEARER_TOKEN: str = Field(default="")
+    TELEGRAM_API_ID: str = Field(default="")
+    TELEGRAM_API_HASH: str = Field(default="")
 
     def validate_secrets(self) -> None:
-        """Validar que los secrets críticos están configurados en producción."""
-        env = os.getenv("ENV", "development")
+        env = self.ENV
         if env == "production":
             _require("SECRET_KEY")
             _require("POSTGRES_PASSWORD")
         if self.STATE_GRADE_MODE:
-            # State-grade requires MFA at-rest encryption and a separate
-            # challenge secret. Fail closed at startup rather than at
-            # the first enrollment.
             if not self.MFA_ENCRYPTION_KEY:
                 raise ValueError(
                     "MFA_ENCRYPTION_KEY is required when STATE_GRADE_MODE=true. "

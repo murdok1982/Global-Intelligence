@@ -126,7 +126,7 @@ services:
     env_file:
       - ./frontend/.env.local
     ports:
-      - "0.0.0.0:3000:3000"
+      - "127.0.0.1:3000:3000"
     networks:
       - internal
     depends_on:
