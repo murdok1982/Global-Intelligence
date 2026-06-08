@@ -32,6 +32,7 @@ from app.agents.providers.osint import (
     OSINTProvider,
     OSINTSignal,
     RSSProvider,
+    YouTubeProvider,
     canonical_url,
 )
 from app.core.classification import ClassificationLevel, TLP
@@ -45,18 +46,19 @@ def _default_providers() -> list[OSINTProvider]:
 
     Always-on:
         * GDELT (no key required)
-        * RSS curated feed list
+        * RSS curated feed list (30 sources)
+        * YouTube OSINT (10 channels via public RSS)
 
     Conditional:
         * NewsAPI — only if ``settings.NEWSAPI_API_KEY`` is set.
     """
-    providers: list[OSINTProvider] = [GDELTProvider(), RSSProvider()]
+    providers: list[OSINTProvider] = [
+        GDELTProvider(),
+        RSSProvider(),
+        YouTubeProvider(),
+    ]
     newsapi = NewsAPIProvider()
-    # The constructor reads the key from settings; if it is empty
-    # the provider returns [] on execute() and is effectively a no-op
-    # — keeping it in the list is fine but adds a tiny await. Skip it
-    # explicitly when unconfigured.
-    if newsapi._api_key:  # noqa: SLF001 (private attr check is acceptable here)
+    if newsapi._api_key:  # noqa: SLF001
         providers.append(newsapi)
     return providers
 

@@ -7,6 +7,8 @@
 [![Backend](https://img.shields.io/badge/Backend-FastAPI-009688.svg)](#)
 [![Database](https://img.shields.io/badge/PostgreSQL-15%20%2B%20pgvector-336791.svg)](#)
 [![Frontend](https://img.shields.io/badge/Frontend-Next.js%2014-black.svg)](#)
+[![OSINT](https://img.shields.io/badge/Fuentes-30%20RSS%20%2B%2010%20YouTube-red)](backend/app/agents/providers/osint/sources.json)
+[![LLM](https://img.shields.io/badge/LLM-Ollama%20%2B%20ATALAYA-black)](osint_pipeline/ollama_geoint.modelfile)
 
 ---
 
@@ -41,6 +43,9 @@ Diferenciadores clave:
   por nivel de habilitación y por organización.
 - Auditoría inmutable con cadena de hash verificable.
 - Despliegue contenerizado, compatible con operación air-gap.
+- **Red OSINT de 30 fuentes RSS + 10 canales YouTube** con clasificación NATO.
+- **Perfil ATALAYA**: analista militar LLM con metodología PMESII-PT.
+- **Pipeline standalone** para generación de informes semanales bilingües.
 
 ---
 
@@ -102,8 +107,39 @@ confianza.
   detached signature).
 - Despliegue contenerizado con Docker Compose. Compatible con
   operación air-gap si las fuentes OSINT externas se desactivan.
-- Compatibilidad con proveedores OSINT públicos: GDELT, fuentes
-  RSS, NewsAPI (ver documentación específica).
+- **Red OSINT extendida**: 30 fuentes RSS globales + 10 canales YouTube
+  de analistas estratégicos (CSIS, RAND, Stratfor, Chatham House, etc.)
+  con clasificación de fiabilidad NATO (A/B/C).
+- **Perfil ATALAYA**: sistema LLM especializado en análisis militar con
+  metodología PMESII-PT (Político, Militar, Económico, Social,
+  Infraestructura, Información, Tiempo, Terreno).
+- **Pipeline de informes semanales** bilingües (ES/EN) con previsiones
+  a 6 meses, 1 año y 3 años por país.
+- **Protección SSRF** en todas las peticiones HTTP externas.
+- Compatibilidad con proveedores OSINT públicos: GDELT, fuentes RSS,
+  YouTube OSINT, NewsAPI (ver documentación específica).
+
+---
+
+## Pipeline OSINT Standalone
+
+Adicionalmente a la plataforma web, el proyecto incluye un pipeline
+standalone para generación autónoma de informes de inteligencia:
+
+```bash
+cd osint_pipeline
+./setup.sh          # Instala Ollama + modelo ATALAYA
+python main.py      # Genera informe semanal bilingüe
+```
+
+Capacidades del pipeline:
+- Análisis de 23 países en 6 regiones estratégicas
+- Metodología PMESII-PT aplicada a cada país
+- Fuentes: GDELT + 30 RSS + 10 YouTube (sin API keys requeridas)
+- Informes Markdown bilingües con previsiones multi-horizonte
+- Compatible con operación air-gap (tras instalación inicial)
+
+Ver [osint_pipeline/README.md](osint_pipeline/README.md) para detalles.
 
 ---
 

@@ -28,6 +28,8 @@ from app.api.endpoints import (
     continents,
     contributors,
     countries,
+    export,
+    military,
     reports,
     signing,
 )
@@ -38,6 +40,7 @@ public_router = APIRouter()
 public_router.include_router(auth.router, prefix="/auth", tags=["auth"])
 public_router.include_router(continents.router, prefix="/continents", tags=["continents"])
 public_router.include_router(countries.router, prefix="/countries", tags=["countries"])
+public_router.include_router(military.router, prefix="/military", tags=["military"])
 public_router.include_router(signing.public_router, prefix="/signing", tags=["signing"])
 
 
@@ -48,6 +51,7 @@ classified_router = APIRouter(
 classified_router.include_router(reports.router, prefix="/reports", tags=["reports"])
 classified_router.include_router(chat.router, prefix="/chat", tags=["chat"])
 classified_router.include_router(admin.router, prefix="/admin", tags=["admin"])
+classified_router.include_router(export.router, prefix="/export", tags=["export"])
 classified_router.include_router(
     contributors.router, prefix="/contributors", tags=["contributors"]
 )

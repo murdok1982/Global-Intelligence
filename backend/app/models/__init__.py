@@ -6,6 +6,15 @@ from app.models.reports import DailyReport, PremiumReport, ReportCitation
 from app.models.interactions import ChatSession, ChatMessage, ScenarioRun, ContributorSubmission
 from app.models.auth import MFARecoveryCode, WebAuthnCredential
 from app.models.audit import AuditEvent
+from app.models.military import (
+    WeaponSystem,
+    WeaponVariant,
+    WeaponOperator,
+    ArmsTransfer,
+    MilitaryUnit,
+    MilitaryBase,
+    DefenseBudget,
+)
 
 __all__ = [
     "Base", "User", "RoleEnum",
@@ -15,4 +24,6 @@ __all__ = [
     "ChatSession", "ChatMessage", "ScenarioRun", "ContributorSubmission",
     "MFARecoveryCode", "WebAuthnCredential",
     "AuditEvent",
+    "WeaponSystem", "WeaponVariant", "WeaponOperator",
+    "ArmsTransfer", "MilitaryUnit", "MilitaryBase", "DefenseBudget",
 ]

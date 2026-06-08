@@ -125,6 +125,13 @@ class Settings(BaseSettings):
     # Hard cap on records pulled from any single source. Belt-and-braces
     # for upstreams that ignore our explicit limit parameter.
     OSINT_MAX_PER_SOURCE: int = int(os.getenv("OSINT_MAX_PER_SOURCE", "25"))
+    SHODAN_API_KEY: str = os.getenv("SHODAN_API_KEY", "")
+    GREYNOISE_API_KEY: str = os.getenv("GREYNOISE_API_KEY", "")
+    COPERNICUS_USERNAME: str = os.getenv("COPERNICUS_USERNAME", "")
+    COPERNICUS_PASSWORD: str = os.getenv("COPERNICUS_PASSWORD", "")
+    MARINETRAFFIC_API_KEY: str = os.getenv("MARINETRAFFIC_API_KEY", "")
+    ACLED_API_KEY: str = os.getenv("ACLED_API_KEY", "")
+    ACLED_EMAIL: str = os.getenv("ACLED_EMAIL", "")
 
     def validate_secrets(self) -> None:
         """Validar que los secrets críticos están configurados en producción."""

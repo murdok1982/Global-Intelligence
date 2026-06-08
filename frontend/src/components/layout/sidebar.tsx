@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { Globe, FileText, Database, Shield, Zap, Key } from 'lucide-react';
+import { Globe, FileText, Database, Shield, Zap, Key, Crosshair, Radio } from 'lucide-react';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import {
   CLASSIFICATION_COLOR,
@@ -36,6 +36,7 @@ export function Sidebar() {
       {/* Navigation */}
       <nav className="flex-1 w-full px-4 space-y-2" aria-label="Navegación principal">
         <NavItem href="/dashboard" icon={<Globe size={18} />} label="Mapa Global" active />
+        <NavItem href="/military" icon={<Crosshair size={18} />} label="Intel Militar" />
         <NavItem href="/intelligence" icon={<Database size={18} />} label="Repositorio Intel" />
         <NavItem href="/reports" icon={<FileText size={18} />} label="Síntesis Diaria" />
         <NavItem href="/scenarios" icon={<Zap size={18} />} label="Motor de Escenarios" />

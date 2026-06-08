@@ -148,3 +148,65 @@ export interface IntakeResponse {
   response: string;
   session_id: string;
 }
+
+export interface Weapon {
+  id: string;
+  name: string;
+  designation: string;
+  origin_country: string;
+  category: string;
+  cost_usd: number | null;
+  key_specs: Record<string, string>;
+  description?: string;
+  image_url?: string | null;
+}
+
+export interface WeaponListResponse {
+  items: Weapon[];
+  total: number;
+  page: number;
+  size: number;
+  pages: number;
+}
+
+export interface ArmsTransfer {
+  id: string;
+  supplier_country: string;
+  recipient_country: string;
+  weapon_system: string;
+  year: number;
+  value_usd: number | null;
+  status: string;
+  lat_supplier?: number;
+  lng_supplier?: number;
+  lat_recipient?: number;
+  lng_recipient?: number;
+}
+
+export interface MilitaryBase {
+  id: string;
+  name: string;
+  country: string;
+  type: string;
+  lat: number;
+  lng: number;
+  is_foreign: boolean;
+  personnel_count?: number | null;
+  status?: string;
+}
+
+export interface DefenseBudget {
+  id: string;
+  country: string;
+  year: number;
+  budget_usd: number;
+  gdp_percentage: number | null;
+  source?: string | null;
+}
+
+export interface MilitaryStats {
+  total_weapons: number;
+  total_transfers: number;
+  total_bases: number;
+  global_spend_usd: number;
+}

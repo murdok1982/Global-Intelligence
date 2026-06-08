@@ -4,10 +4,14 @@ Synthesis Agent — turns raw intelligence signals into a structured brief.
 Routes every LLM call through :data:`llm_router`, which enforces the
 sovereignty gate: any task with ``classification >= CONFIDENTIAL``
 will be served by a local provider (Ollama / vLLM) only.
+
+Uses the ATALAYA analytical framework with PMESII-PT methodology
+for structured geopolitical intelligence assessment.
 """
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from app.agents.base import AgentResult, AgentTask, BaseAgent
@@ -15,11 +19,26 @@ from app.core.classification import ClassificationLevel, TLP
 from app.services.llm import LLMTask, llm_router
 
 
-_SYSTEM_PROMPT = (
+_PROMPTS_DIR = Path(__file__).parent / "prompts"
+
+
+def _load_prompt(filename: str) -> str:
+    """Load a prompt template from the prompts directory."""
+    prompt_path = _PROMPTS_DIR / filename
+    if prompt_path.exists():
+        return prompt_path.read_text(encoding="utf-8")
+    return ""
+
+
+_SYSTEM_PROMPT = _load_prompt("atalaya_system.txt") or (
     "You are an elite intelligence synthesis operative. Use markdown, "
     "formal tone, extreme precision. Do not invent sources. Cite only "
     "the signals provided. Mark uncertainty explicitly."
 )
+
+_ANALYSIS_TEMPLATE = _load_prompt("analysis_es.txt")
+_FORECAST_TEMPLATE = _load_prompt("forecast_es.txt")
+_SYNTHESIS_TEMPLATE = _load_prompt("synthesis_es.txt")
 
 
 class SynthesisAgent(BaseAgent):

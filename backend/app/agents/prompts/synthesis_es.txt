@@ -1,0 +1,21 @@
+Elabora una síntesis estratégica regional para {{ region }} integrando los análisis de los siguientes países: {{ countries }}.
+
+## Panorama Regional
+- Dinámicas de poder inter-estatales
+- Conflictos activos o latentes
+- Alianzas y bloques regionales
+
+## Vectores Transnacionales
+- Flujos migratorios y desplazamientos
+- Crimen organizado transfronterizo
+- Redes de proliferación
+- Ciberamenazas coordinadas
+
+## Oportunidades de Cooperación
+- Espacios de diálogo bilateral/multilateral
+- Proyectos de integración económica
+- Mecanismos de seguridad colectiva
+
+## Evaluación de Riesgo Regional
+Clasificación global de estabilidad: BAJA / MEDIA / ALTA / CRÍTICA
+Principales factores de desestabilización a monitorear.

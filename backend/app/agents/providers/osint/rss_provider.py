@@ -104,7 +104,10 @@ def _strip_namespace(tag: str) -> str:
 
 def _load_sources() -> list[dict[str, str]]:
     try:
-        return json.loads(_SOURCES_PATH.read_text(encoding="utf-8"))
+        data = json.loads(_SOURCES_PATH.read_text(encoding="utf-8"))
+        if isinstance(data, list):
+            return data
+        return data.get("rss_feeds", [])
     except Exception as exc:  # noqa: BLE001
         logger.warning("RSS sources.json could not be loaded: %s", exc)
         return []
