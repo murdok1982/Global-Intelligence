@@ -9,6 +9,7 @@ import {
   CLASSIFICATION_SHORT,
   ClassificationLevel,
 } from '@/lib/classification';
+import { getTranslations } from '@/lib/i18n/translations';
 
 // Mapa de barras de progreso por nivel — clases tailwind explícitas para JIT.
 const PROGRESS_BAR: Record<ClassificationLevel, string> = {
@@ -22,6 +23,7 @@ export function Sidebar() {
   const pathname = usePathname();
   const { clearance, isAuthenticated, isLoading } = useCurrentUser();
   const palette = CLASSIFICATION_COLOR[clearance];
+  const t = getTranslations('en');
 
   const isActive = (href: string) => {
     if (href === '/dashboard') return pathname === '/dashboard';
@@ -42,17 +44,17 @@ export function Sidebar() {
 
       {/* Navigation */}
       <nav className="flex-1 w-full px-4 space-y-2" aria-label="Navegación principal">
-        <NavItem href="/dashboard" icon={<Globe size={18} />} label="Mapa Global" active={isActive('/dashboard')} />
-        <NavItem href="/military" icon={<Crosshair size={18} />} label="Intel Militar" active={isActive('/military')} />
-        <NavItem href="/intelligence" icon={<Database size={18} />} label="Repositorio Intel" active={isActive('/intelligence')} />
-        <NavItem href="/reports" icon={<FileText size={18} />} label="Síntesis Diaria" active={isActive('/reports')} />
-        <NavItem href="/scenarios" icon={<Zap size={18} />} label="Motor de Escenarios" active={isActive('/scenarios')} />
+        <NavItem href="/dashboard" icon={<Globe size={18} />} label={t.nav.globalMap} active={isActive('/dashboard')} />
+        <NavItem href="/military" icon={<Crosshair size={18} />} label={t.nav.militaryIntel} active={isActive('/military')} />
+        <NavItem href="/intelligence" icon={<Database size={18} />} label={t.nav.intelRepository} active={isActive('/intelligence')} />
+        <NavItem href="/reports" icon={<FileText size={18} />} label={t.nav.dailySynthesis} active={isActive('/reports')} />
+        <NavItem href="/scenarios" icon={<Zap size={18} />} label={t.nav.scenarioEngine} active={isActive('/scenarios')} />
 
         <div className="pt-6 pb-2 px-2">
           <p className="text-[10px] font-bold tracking-widest text-neutral-600 uppercase">Operaciones</p>
         </div>
-        <NavItem href="/contribute" icon={<Shield size={18} />} label="Intake Seguro" active={isActive('/contribute')} />
-        <NavItem href="/admin" icon={<Key size={18} />} label="Centro de Mando" active={isActive('/admin')} />
+        <NavItem href="/contribute" icon={<Shield size={18} />} label={t.nav.secureIntake} active={isActive('/contribute')} />
+        <NavItem href="/admin" icon={<Key size={18} />} label={t.nav.commandCenter} active={isActive('/admin')} />
       </nav>
 
       {/* User Status Bottom */}
@@ -64,7 +66,7 @@ export function Sidebar() {
             CLEARANCE
           </p>
           {isLoading ? (
-            <p className="text-neutral-500 tracking-wider">Cargando…</p>
+            <p className="text-neutral-500 tracking-wider">{t.common.loading}</p>
           ) : isAuthenticated ? (
             <p className={`${palette.text} tracking-wider font-bold`}>
               NIVEL: {CLASSIFICATION_SHORT[clearance]}

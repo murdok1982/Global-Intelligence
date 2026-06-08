@@ -7,6 +7,7 @@ import { useContinents } from '@/hooks/useContinents';
 import { useAdminStats } from '@/hooks/useAdmin';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ErrorState } from '@/components/ui/error-state';
+import { getTranslations } from '@/lib/i18n/translations';
 
 const GeoIntelligenceMap = dynamic(
   () => import('@/components/map/GeoIntelligenceMap').then(mod => ({ default: mod.GeoIntelligenceMap })),
@@ -30,29 +31,30 @@ const riskColor: Record<string, string> = {
 export default function DashboardPage() {
   const { data: continents, isLoading, isError, refetch } = useContinents();
   const { data: stats } = useAdminStats();
+  const t = getTranslations('en');
 
   return (
     <div className="space-y-8 animate-in fade-in duration-700">
       {/* Title & Stats */}
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-light tracking-tight text-white">Global Overview</h1>
+          <h1 className="text-3xl font-light tracking-tight text-white">{t.dashboard.title}</h1>
           <p className="text-neutral-500 mt-1 font-mono text-sm uppercase tracking-widest">
-            Real-time intelligence nodes
+            {t.dashboard.subtitle}
           </p>
         </div>
 
         <div className="flex gap-4 font-mono text-xs">
           <div className="bg-neutral-900 border border-neutral-800 rounded px-4 py-2 flex items-center gap-3">
             <Activity size={14} className="text-blue-500" />
-            <span className="text-neutral-400">INTEL ITEMS:</span>
+            <span className="text-neutral-400">{t.dashboard.intelItems}:</span>
             <span className="text-white font-bold">
               {stats ? stats.intelligence_items.toLocaleString() : '—'}
             </span>
           </div>
           <div className="bg-neutral-900 border border-neutral-800 rounded px-4 py-2 flex items-center gap-3">
             <ShieldAlert size={14} className="text-red-500 animate-pulse" />
-            <span className="text-neutral-400">PENDING:</span>
+            <span className="text-neutral-400">{t.dashboard.pending}:</span>
             <span className="text-white font-bold">
               {stats ? stats.pending_contributions : '—'}
             </span>

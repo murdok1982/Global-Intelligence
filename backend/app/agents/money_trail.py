@@ -30,7 +30,7 @@ from app.services.llm import LLMTask, llm_router
 
 logger = logging.getLogger(__name__)
 
-_OFAC_SDN_URL = "https://api.ofac-api.com/v4/sdn"
+_OFAC_SDN_URL = "https://www.treasury.gov/ofac/downloads/sdn.xml"
 _EU_SANCTIONS_URL = "https://webgate.ec.europa.eu/fsd/fsf/api/export/xml"
 _UN_SC_SANCTIONS_URL = "https://scsanctions.un.org/resources/xml/en/consolidated.xml"
 
@@ -144,13 +144,9 @@ class MoneyTrailAgent(BaseAgent):
 
         async with httpx.AsyncClient(timeout=_HTTP_TIMEOUT) as client:
             try:
-                resp = await client.get(
-                    _OFAC_SDN_URL,
-                    params={"name": entity_name, "country": country_iso},
-                    headers={"Accept": "application/json"},
-                )
+                resp = await client.get(_OFAC_SDN_URL)
                 if resp.status_code == 200:
-                    results["ofac_matches"] = resp.json().get("results", [])
+                    results["ofac_matches"] = self._parse_ofac_xml(resp.text, entity_name)
                 else:
                     results["ofac_error"] = f"HTTP {resp.status_code}"
             except Exception as exc:
@@ -405,6 +401,38 @@ class MoneyTrailAgent(BaseAgent):
         except ET.ParseError:
             matches.append({"source": "eu_sanctions", "error": "XML parse failed", "raw_length": len(xml_text)})
         
+        return matches
+
+    @staticmethod
+    def _parse_ofac_xml(xml_text: str, entity_name: str) -> List[Dict[str, Any]]:
+        import xml.etree.ElementTree as ET
+
+        matches = []
+        try:
+            root = ET.fromstring(xml_text)
+
+            for entry in root.findall(".//sdnEntry"):
+                first_name = entry.findtext("firstName", "").strip()
+                last_name = entry.findtext("lastName", "").strip()
+                full_name = f"{first_name} {last_name}".strip()
+
+                if not entity_name or entity_name.lower() not in full_name.lower():
+                    continue
+
+                uid = entry.findtext("uid", "").strip()
+                sdn_type = entry.findtext("sdnType", "").strip()
+                remarks = entry.findtext("remarks", "").strip()
+
+                matches.append({
+                    "source": "ofac_sdn",
+                    "name": full_name,
+                    "type": sdn_type,
+                    "remarks": remarks,
+                    "uid": uid,
+                })
+        except ET.ParseError:
+            matches.append({"source": "ofac_sdn", "error": "XML parse failed", "raw_length": len(xml_text)})
+
         return matches
 
     @staticmethod

@@ -40,6 +40,9 @@ from .exceptions import SSRFBlockedError
 logger = logging.getLogger(__name__)
 
 
+_csv_cache: dict = {"data": None, "fetched_at": None}
+_CACHE_TTL_SECONDS = 86400
+
 _SIPRI_CSV_URL = "https://www.sipri.org/sites/default/files/Armstransfer-database.csv"
 _SIPRI_DATA_PAGE = "https://www.sipri.org/databases/armstransfers"
 _GLOBALSECURITY_URL = "https://www.globalsecurity.org/military/world/"
@@ -143,8 +146,17 @@ class SIPRIProvider(OSINTProvider):
     async def _fetch_csv_data(
         self, country_iso: str, year_from: int, year_to: int
     ) -> list[dict]:
+        global _csv_cache
+
+        now = datetime.now(timezone.utc)
+        if (
+            _csv_cache["data"] is not None
+            and _csv_cache["fetched_at"] is not None
+            and (_csv_cache["fetched_at"].timestamp() + _CACHE_TTL_SECONDS) > now.timestamp()
+        ):
+            return self._filter_rows(_csv_cache["data"], country_iso, year_from, year_to)
+
         rows: list[dict] = []
-        target = country_iso.upper()
 
         for attempt in range(3):
             try:
@@ -154,21 +166,9 @@ class SIPRIProvider(OSINTProvider):
                     raw_text = response.text
 
                 reader = csv.DictReader(io.StringIO(raw_text))
-                for row in reader:
-                    recipient = self._field(row, "recipient")
-                    if target and recipient and target not in recipient.upper():
-                        continue
-
-                    year_str = self._field(row, "year")
-                    if year_str:
-                        try:
-                            year_val = int(year_str.split("-")[0].strip())
-                            if year_val < year_from or year_val > year_to:
-                                continue
-                        except (ValueError, TypeError):
-                            pass
-
-                    rows.append(row)
+                all_rows = list(reader)
+                _csv_cache = {"data": all_rows, "fetched_at": now}
+                rows = self._filter_rows(all_rows, country_iso, year_from, year_to)
                 break
             except Exception as exc:  # noqa: BLE001
                 logger.warning("SIPRI CSV attempt %d failed: %s", attempt + 1, exc)
@@ -176,6 +176,34 @@ class SIPRIProvider(OSINTProvider):
                     await asyncio.sleep(0.5 * (attempt + 1))
 
         return rows
+
+    @staticmethod
+    def _filter_rows(all_rows: list[dict], country_iso: str, year_from: int, year_to: int) -> list[dict]:
+        target = country_iso.upper()
+        filtered: list[dict] = []
+
+        for row in all_rows:
+            recipient = SIPRIProvider._field(row, "recipient")
+            if target and recipient and target not in recipient.upper():
+                continue
+
+            year_str = SIPRIProvider._field(row, "year")
+            if year_str:
+                try:
+                    year_val = int(year_str.split("-")[0].strip())
+                    if year_val < year_from or year_val > year_to:
+                        continue
+                except (ValueError, TypeError):
+                    pass
+
+            filtered.append(row)
+
+        return filtered
+
+    @classmethod
+    def clear_cache(cls) -> None:
+        global _csv_cache
+        _csv_cache = {"data": None, "fetched_at": None}
 
     async def _fetch_fallback(
         self, country_iso: str, year_from: int, year_to: int

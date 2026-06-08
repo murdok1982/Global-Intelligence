@@ -3,8 +3,8 @@ from __future__ import annotations
 from dataclasses import asdict
 from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, status
-from pydantic import BaseModel, model_validator
+from fastapi import APIRouter, Depends, HTTPException, Request, status
+from pydantic import BaseModel, Field, model_validator
 
 from app.agents.base import AgentResult, AgentTask
 from app.agents.cyber_sentinel import cyber_sentinel_agent
@@ -15,23 +15,36 @@ from app.agents.narrative_watch import narrative_watch_agent
 from app.agents.osint import OSINTAgent
 from app.api.deps import get_current_active_user
 from app.core.classification import ClassificationLevel, TLP
+from app.core.limiter import limiter
 from app.models.user import User
 
 router = APIRouter()
 
 
 class EagleEyeRequest(BaseModel):
-    country_iso: str
-    days_back: int = 14
+    model_config = {
+        "json_schema_extra": {
+            "examples": [{"country_iso": "UA", "days_back": 14, "cloud_cover_max": 20.0}]
+        }
+    }
+
+    country_iso: str = Field(description="ISO 3166-1 alpha-3 country code")
+    days_back: int = Field(default=14, description="Number of days to look back", ge=1, le=90)
     coordinates: Optional[Dict[str, float]] = None
-    cloud_cover_max: float = 30.0
+    cloud_cover_max: float = Field(default=30.0, description="Maximum cloud cover percentage")
 
 
 class MoneyTrailRequest(BaseModel):
-    entity_name: Optional[str] = None
-    country_iso: Optional[str] = None
-    commodities: List[str] = ["oil_brent", "natural_gas", "wheat", "rare_earths"]
-    crypto_addresses: List[str] = []
+    model_config = {
+        "json_schema_extra": {
+            "examples": [{"entity_name": "Rosneft", "country_iso": "RU"}]
+        }
+    }
+
+    entity_name: Optional[str] = Field(default=None, description="Name of the entity to track")
+    country_iso: Optional[str] = Field(default=None, description="ISO 3166-1 alpha-3 country code")
+    commodities: List[str] = Field(default=["oil_brent", "natural_gas", "wheat", "rare_earths"], description="Commodity identifiers to monitor")
+    crypto_addresses: List[str] = Field(default=[], description="Cryptocurrency wallet addresses to trace")
 
     @model_validator(mode="after")
     def _require_entity_or_country(self) -> "MoneyTrailRequest":
@@ -41,11 +54,17 @@ class MoneyTrailRequest(BaseModel):
 
 
 class CyberSentinelRequest(BaseModel):
-    target_ip: Optional[str] = None
-    country_iso: Optional[str] = None
-    target_asns: List[str] = []
-    cve_keywords: List[str] = []
-    days_back: int = 7
+    model_config = {
+        "json_schema_extra": {
+            "examples": [{"target_ip": "1.2.3.4"}]
+        }
+    }
+
+    target_ip: Optional[str] = Field(default=None, description="Target IP address or country ISO code")
+    country_iso: Optional[str] = Field(default=None, description="ISO 3166-1 alpha-3 country code")
+    target_asns: List[str] = Field(default=[], description="Autonomous System Numbers to investigate")
+    cve_keywords: List[str] = Field(default=[], description="CVE identifiers or keywords to search")
+    days_back: int = Field(default=7, description="Number of days to look back", ge=1, le=90)
 
     @model_validator(mode="after")
     def _require_target_or_country(self) -> "CyberSentinelRequest":
@@ -55,25 +74,43 @@ class CyberSentinelRequest(BaseModel):
 
 
 class NarrativeWatchRequest(BaseModel):
-    country_iso: str
-    topic: str
-    days_back: int = 7
-    sources: List[str] = []
-    detect_bots: bool = True
+    model_config = {
+        "json_schema_extra": {
+            "examples": [{"country_iso": "CN", "topic": "trade"}]
+        }
+    }
+
+    country_iso: str = Field(description="ISO 3166-1 alpha-3 country code")
+    topic: str = Field(description="Topic or narrative to monitor")
+    days_back: int = Field(default=7, description="Number of days to look back", ge=1, le=90)
+    sources: List[str] = Field(default=[], description="Specific source identifiers to query")
+    detect_bots: bool = Field(default=True, description="Enable bot detection analysis")
 
 
 class EarlyWarningRequest(BaseModel):
-    country_iso: str
-    country_name: Optional[str] = None
-    agent_signals: Dict[str, Any] = {}
-    historical_baseline: Optional[Dict[str, float]] = None
+    model_config = {
+        "json_schema_extra": {
+            "examples": [{"country_iso": "KP"}]
+        }
+    }
+
+    country_iso: str = Field(description="ISO 3166-1 alpha-3 country code")
+    country_name: Optional[str] = Field(default=None, description="Human-readable country name")
+    agent_signals: Dict[str, Any] = Field(default={}, description="Aggregated signal data from other agents")
+    historical_baseline: Optional[Dict[str, float]] = Field(default=None, description="Historical baseline metrics for comparison")
 
 
 class FullAnalysisRequest(BaseModel):
-    country_iso: str
-    days_back: int = 7
-    topic: Optional[str] = None
-    coordinates: Optional[Dict[str, float]] = None
+    model_config = {
+        "json_schema_extra": {
+            "examples": [{"country_iso": "RU", "days_back": 7}]
+        }
+    }
+
+    country_iso: str = Field(description="ISO 3166-1 alpha-3 country code")
+    days_back: int = Field(default=7, description="Number of days to look back", ge=1, le=90)
+    topic: Optional[str] = Field(default=None, description="Specific topic focus for analysis")
+    coordinates: Optional[Dict[str, float]] = Field(default=None, description="Geographic coordinates for regional analysis")
 
 
 def _serialize_result(result: AgentResult) -> dict[str, Any]:
@@ -93,7 +130,9 @@ def _require_restricted(user: User) -> None:
 
 
 @router.post("/eagle-eye/execute")
+@limiter.limit("10/minute")
 async def execute_eagle_eye(
+    request: Request,
     body: EagleEyeRequest,
     current_user: User = Depends(get_current_active_user),
 ) -> dict[str, Any]:
@@ -116,7 +155,9 @@ async def execute_eagle_eye(
 
 
 @router.post("/money-trail/execute")
+@limiter.limit("10/minute")
 async def execute_money_trail(
+    request: Request,
     body: MoneyTrailRequest,
     current_user: User = Depends(get_current_active_user),
 ) -> dict[str, Any]:
@@ -138,7 +179,9 @@ async def execute_money_trail(
 
 
 @router.post("/cyber-sentinel/execute")
+@limiter.limit("10/minute")
 async def execute_cyber_sentinel(
+    request: Request,
     body: CyberSentinelRequest,
     current_user: User = Depends(get_current_active_user),
 ) -> dict[str, Any]:
@@ -162,7 +205,9 @@ async def execute_cyber_sentinel(
 
 
 @router.post("/narrative-watch/execute")
+@limiter.limit("10/minute")
 async def execute_narrative_watch(
+    request: Request,
     body: NarrativeWatchRequest,
     current_user: User = Depends(get_current_active_user),
 ) -> dict[str, Any]:
@@ -185,7 +230,9 @@ async def execute_narrative_watch(
 
 
 @router.post("/early-warning/execute")
+@limiter.limit("10/minute")
 async def execute_early_warning(
+    request: Request,
     body: EarlyWarningRequest,
     current_user: User = Depends(get_current_active_user),
 ) -> dict[str, Any]:
@@ -207,7 +254,9 @@ async def execute_early_warning(
 
 
 @router.post("/full-analysis/execute")
+@limiter.limit("5/minute")
 async def execute_full_analysis(
+    request: Request,
     body: FullAnalysisRequest,
     current_user: User = Depends(get_current_active_user),
 ) -> dict[str, Any]:

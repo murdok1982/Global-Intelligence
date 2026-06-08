@@ -11,11 +11,13 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy source code
 COPY ./app /app/app
-# COPY ./alembic.ini /app/
-# COPY ./migrations /app/migrations
+COPY ./scripts /app/scripts
+COPY ./alembic.ini /app/
+COPY ./migrations /app/migrations
+COPY ./entrypoint.sh /app/entrypoint.sh
+RUN chmod +x /app/entrypoint.sh
 
 # Expose FastAPI default port
 EXPOSE 8000
 
-# Start server
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["./entrypoint.sh"]
